@@ -137,9 +137,11 @@ python tools/datasets.py plan rcabench_aegis --profile artifact_smoke
 An actual acquisition is explicit and records source provenance:
 
 ```bash
-python -m pip install huggingface_hub
+python -m pip install huggingface_hub pyarrow
 python tools/datasets.py fetch rcaeval --profile smoke \
   --dest data/raw --accept-license --yes
+python tools/datasets.py verify rcaeval --profile smoke \
+  --path data/raw/rcaeval/smoke --parse-parquet
 ```
 
 The full RCABench payload is intentionally not the first download. Begin with its approximately 2 MB artifact profile, then allocate storage and fetch the 13.4 GB telemetry only after the parser contract and split policy are frozen.
