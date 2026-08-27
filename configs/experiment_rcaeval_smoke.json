@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcaeval-call-recovery-smoke-v1",
+  "dataset": {
+    "dataset_id": "rcaeval",
+    "profile": "smoke",
+    "source_revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+    "raw_case": "re2tt_ts-auth-service_cpu_2",
+    "incident_id": "rcaeval_tt_smoke_0001",
+    "system_id": "train-ticket"
+  },
+  "partition": {
+    "unit": "whole_trace",
+    "reference_percent": 40,
+    "hash": "sha256",
+    "salt": "rcaeval-call-recovery-smoke-v1"
+  },
+  "reference": {
+    "relation": "CALLS",
+    "minimum_unique_traces": 5,
+    "minimum_minute_buckets": 3,
+    "minimum_temporal_containment": 0.95,
+    "require_pre_and_post_injection": true,
+    "visibility": "evaluator_only"
+  },
+  "masks": [
+    {"id": "iid20", "kind": "iid", "ratio": 0.2, "seed": 17, "level": "L1_boundary_hidden"},
+    {"id": "iid40", "kind": "iid", "ratio": 0.4, "seed": 17, "level": "L1_boundary_hidden"},
+    {"id": "iid60", "kind": "iid", "ratio": 0.6, "seed": 17, "level": "L1_boundary_hidden"},
+    {"id": "component", "kind": "component_blackout", "selector": "highest_total_degree", "seed": 17, "level": "L1_boundary_hidden"}
+  ],
+  "ablations": ["A0", "A1", "A2", "A3", "A4", "A5"],
+  "optional_backends": {
+    "deberta_model": "cross-encoder/nli-deberta-v3-small",
+    "deberta_revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "deberta_artifact": "onnx/model_quint8_avx2.onnx",
+    "deberta_artifact_sha256": "03c2221313dc0c3eac9cec1f746d1319d33f2c2901fcce1c0f08f4daac9b6dae",
+    "deberta_label_order": ["contradiction", "entailment", "neutral"],
+    "deberta_required_for": ["A3", "A4", "A5"],
+    "psl_required_for": ["A5"],
+    "psl_version": "2.4.0",
+    "psl_seed": 7,
+    "missing_backend_policy": "SKIPPED",
+    "allow_mock_in_research_run": false
+  },
+  "decision_gates": {
+    "candidate_recall_at_k": 0.9,
+    "require_nonzero_activation_flips": true,
+    "forbid_reference_in_inference": true,
+    "forbid_mask_manifest_in_inference": true
+  },
+  "notes": [
+    "This auth incident is an ETL/leakage smoke, not the primary RCA-path case.",
+    "Silver CALLS denotes held-out runtime parent-child evidence, not causality or permanent deployment topology.",
+    "Predictions outside the silver reference are unknown; silver-CWA precision is a conservative lower bound."
+  ]
+}

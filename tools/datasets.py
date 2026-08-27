@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 from typing import Any, Iterable
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 
@@ -421,28 +422,38 @@ def _fetch_zenodo(dataset: dict[str, Any], profile_name: str, profile: dict[str,
 def _fetch_huggingface(dataset: dict[str, Any], profile_name: str, profile: dict[str, Any], target: Path) -> None:
     try:
         from huggingface_hub import HfApi, snapshot_download
-    except ImportError as exc:
-        raise RegistryError("Install huggingface_hub to fetch Hugging Face profiles") from exc
-
-    info = HfApi().dataset_info(repo_id=profile["repo_id"], revision=profile.get("revision"))
-    snapshot_download(
-        repo_id=profile["repo_id"],
-        repo_type="dataset",
-        revision=info.sha,
-        allow_patterns=profile["allow_patterns"],
-        local_dir=target,
-    )
-    resolved: dict[str, str] = {}
-    for relative_name, checksum in profile.get("checksums", {}).items():
-        path = target / relative_name
-        if not path.is_file():
-            raise RegistryError(f"Expected Hugging Face file is missing: {relative_name}")
-        expected_bytes = profile.get("expected_bytes", {}).get(relative_name)
-        if expected_bytes is not None and path.stat().st_size != expected_bytes:
+    except ImportError:
+        checksums = profile.get("checksums", {})
+        if not checksums:
             raise RegistryError(
-                f"Size mismatch for {relative_name}: expected {expected_bytes}, got {path.stat().st_size}"
+                "Install huggingface_hub for profiles without an exact checksummed file list"
             )
-        resolved[relative_name] = _checksum(path, checksum)
+        revision = profile.get("revision")
+        if not revision or revision == "main":
+            raise RegistryError("Direct Hugging Face fallback requires an immutable revision")
+        target.mkdir(parents=True, exist_ok=False)
+        for relative_name in sorted(checksums):
+            destination = _safe_relative_path(target, relative_name)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            encoded_path = quote(relative_name, safe="/")
+            url = (
+                f"https://huggingface.co/datasets/{profile['repo_id']}/resolve/"
+                f"{quote(revision, safe='')}/{encoded_path}"
+            )
+            _download(url, destination)
+        resolved = verify_local_profile(profile, target, parse_parquet=False)
+        resolved_revision = revision
+    else:
+        info = HfApi().dataset_info(repo_id=profile["repo_id"], revision=profile.get("revision"))
+        snapshot_download(
+            repo_id=profile["repo_id"],
+            repo_type="dataset",
+            revision=info.sha,
+            allow_patterns=profile["allow_patterns"],
+            local_dir=target,
+        )
+        resolved = verify_local_profile(profile, target, parse_parquet=False)
+        resolved_revision = info.sha
     _write_provenance(
         target,
         {
@@ -450,9 +461,9 @@ def _fetch_huggingface(dataset: dict[str, Any], profile_name: str, profile: dict
             "profile": profile_name,
             "adapter": "huggingface",
             "repo_id": profile["repo_id"],
-            "revision": info.sha,
+            "revision": resolved_revision,
             "allow_patterns": profile["allow_patterns"],
-            "checksums": resolved,
+            "verified": resolved,
         },
     )
 

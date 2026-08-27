@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcaeval-call-recovery-smoke-v1",
+  "dataset_revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+  "trace_split": {
+    "reference_traces": 2539,
+    "model_traces": 3936,
+    "reference_spans": 332867,
+    "model_spans": 506069,
+    "overlap": 0
+  },
+  "silver_calls": {
+    "total": 55,
+    "attestation_a": 52,
+    "attestation_b": 3
+  },
+  "conditions": [
+    {
+      "id": "iid20",
+      "target_count": 10,
+      "redacted_boundary_spans": 9408,
+      "metrics": {
+        "A2": {"accepted": 13, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 0.7692307692},
+        "A3": {"accepted": 1272, "masked_recall": 0.0, "mrr": 0.0359070878, "hits_at_1": 0.0, "silver_precision_lower_bound": 0.0},
+        "A4": {"accepted": 12, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 0.8333333333},
+        "A5": {"accepted": 10, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 1.0}
+      }
+    },
+    {
+      "id": "iid40",
+      "target_count": 21,
+      "redacted_boundary_spans": 21906,
+      "metrics": {
+        "A2": {"accepted": 26, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 0.8076923077},
+        "A3": {"accepted": 1272, "masked_recall": 0.0, "mrr": 0.0332687072, "hits_at_1": 0.0, "silver_precision_lower_bound": 0.0},
+        "A4": {"accepted": 23, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 0.9130434783},
+        "A5": {"accepted": 21, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 1.0}
+      }
+    },
+    {
+      "id": "iid60",
+      "target_count": 31,
+      "redacted_boundary_spans": 60294,
+      "metrics": {
+        "A2": {"accepted": 48, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 0.6458333333},
+        "A3": {"accepted": 1272, "masked_recall": 0.0, "mrr": 0.0336885385, "hits_at_1": 0.0, "silver_precision_lower_bound": 0.0},
+        "A4": {"accepted": 36, "masked_recall": 1.0, "mrr": 0.9677419355, "hits_at_1": 0.935483871, "silver_precision_lower_bound": 0.8611111111},
+        "A5": {"accepted": 33, "masked_recall": 1.0, "mrr": 0.9677419355, "hits_at_1": 0.935483871, "silver_precision_lower_bound": 0.9393939394}
+      }
+    },
+    {
+      "id": "component_blackout",
+      "component": "rcaeval:train-ticket:service:ts-preserve-service",
+      "target_count": 10,
+      "redacted_boundary_spans": 568,
+      "metrics": {
+        "A2": {"accepted": 10, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 1.0},
+        "A3": {"accepted": 1272, "masked_recall": 0.0, "mrr": 0.0354931269, "hits_at_1": 0.0, "silver_precision_lower_bound": 0.0},
+        "A4": {"accepted": 10, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 1.0},
+        "A5": {"accepted": 10, "masked_recall": 1.0, "mrr": 1.0, "hits_at_1": 1.0, "silver_precision_lower_bound": 1.0}
+      }
+    }
+  ],
+  "diagnostics": {
+    "deberta_direction_margin": -0.0325731852,
+    "deberta_direction_gate": "FAIL",
+    "deberta_batch_composition_max_delta": 0.0401097657,
+    "deberta_batch_composition_gate": "FAIL",
+    "psl_compatibility_override": true,
+    "primary_rca_case_suitable": false
+  }
+}

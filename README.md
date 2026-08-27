@@ -86,3 +86,23 @@ See [the research protocol](docs/research_protocol.md) and [dataset readiness ma
 ## Working branch
 
 Research scaffolding is developed on `research/reference-matrix-readiness`. The default branch remains untouched until the data and protocol gates are reviewed.
+
+## Executable RCAEval smoke
+
+The first leakage-controlled vertical run is now executable: checksummed acquisition, standard incident conversion, whole-trace held-out silver graph, L1 structural masking, and A0--A5 recovery.
+
+- 6,475 traces were split into 2,539 evaluator-only and 3,936 model traces with zero overlap.
+- The held-out runtime graph contains 55 `CALLS` edges: 52 attestation A and 3 attestation B.
+- A2 recovered every masked target in IID 20/40/60% and component-blackout smoke conditions.
+- Off-the-shelf DeBERTa-only A3 failed: it over-predicted 1,272 edges and recovered none of the masked targets.
+- A5 reduced unverified additions in the IID smoke, but this is one incident and one seed, not a paper claim or an RCA result.
+
+Run:
+
+```bash
+python tools/run_rcaeval_smoke.py \
+  --output outputs/rcaeval_smoke/run
+```
+
+Real DeBERTa/PSL backends are optional and are marked `SKIPPED` when unavailable; mock or lexical substitutes are never labeled as A3--A5. See [the executable contract](docs/rcaeval_smoke_experiment.md) and [measured smoke results](reports/rcaeval_smoke_results.md).
+
