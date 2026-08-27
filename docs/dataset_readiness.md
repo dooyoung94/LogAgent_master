@@ -10,9 +10,10 @@ Recommended order:
 
 1. **RCABench/Aegis** as the main realistic TrainTicket incident corpus.
 2. **RCAEval RE2/RE3** as the reproducible multi-system baseline and standardized root-cause evaluation.
-3. **OntoLogX** for the raw-log-to-event-KG front end only.
-4. **Nezha and LO2v2** for topology-evidence and cross-source robustness.
-5. **OpenRCA 1.0** for heavy downstream LLM RCA validation after the core pipeline passes.
+3. **DejaVu** as an exact fault-dependency-graph masking control, while keeping its metrics-only limitation explicit.
+4. **OntoLogX** for the raw-log-to-event-KG front end only.
+5. **Nezha and LO2v2** for topology-evidence and cross-source robustness.
+6. **OpenRCA 1.0** for heavy downstream LLM RCA validation after the core pipeline passes.
 
 This separation is important: an event-triple extraction score from OntoLogX is not a topology-completion score, and a root-service label from RCAEval is not a gold causal path.
 
@@ -34,10 +35,12 @@ READY does not mean “perfect for this paper.” It means the bytes can be acqu
 | [RCAEval](https://github.com/phamquiluan/RCAEval) | 735 cases: RE1 375, RE2 270, RE3 90; 3.442 GB case-level HF Parquet or 5.2 GB Zenodo archives | root service, root indicator, fault, injection time | READY; HF/GitHub MIT, Zenodo CC-BY-4.0 | reproducibility baseline, cross-system root RCA, relation masking |
 | [OntoLogX data](https://zenodo.org/records/17251494) | 193.9 KB; 70 selected AIT logs with CSV and manually annotated TTL splits | event triples, entity links, relation links | READY | event-KG population baseline only |
 | [Nezha](https://github.com/IntelligentDDS/Nezha) | about 343 MB in the repository; 56 Online Boutique and 45 TrainTicket fault cases | service and inner-service RCA labels; trace IDs | READY, MIT | auxiliary relation recovery and RCA baseline |
+| [DejaVu](https://zenodo.org/records/6955909) | 17.5 MB smallest processed split; 1.24 GB processed; `graph.yml`, `metrics.csv`, `faults.csv` | explicit fault-dependency graph and fault instances | CONDITIONAL; code is MIT but Zenodo data license is blank | exact topology masking control; metrics-only, so it cannot validate the DeBERTa log claim |
 | [LO2v2](https://zenodo.org/records/18937117) | 115 runs × 54 tests; 65.6 GB raw, 70.0 GB all files; 50.7 MB index+source profile | run/test timing, source architecture, logs/metrics/traces | READY, data CC-BY-4.0 and code Apache-2.0 | topology recovery and observability-degradation stress tests |
 | [Eadro data](https://zenodo.org/records/7615394) | 127.7 MB; TrainTicket and DeathStarBench SocialNetwork | fault/root annotations with logs, metrics, traces | CONDITIONAL | license metadata gate; useful compact auxiliary after clearance |
 | [Multi-Source OpenStack](https://zenodo.org/records/3549604) | 650.5 MB in two checksummed archives | workload/fault scripts and Rally report; synchronized multi-source telemetry | CONDITIONAL | license/schema audit; non-microservice external relation evidence |
 | [GAIA](https://github.com/CloudWise-OpenSource/GAIA-DataSet) | about 7.8 GB repository; two weeks, millions of logs and rich traces | anomaly injections and trace parentage | CONDITIONAL | repository LICENSE says GPL-2.0 while README says Apache-2.0 |
+| [Loghub OpenStack](https://zenodo.org/records/8196385) | 5.4 MB compressed OpenStack log corpus | no topology or RCA label | READY for the Zenodo CC-BY-4.0 artifact | cheap log-parser/event-KG pretraining only; GitHub repository uses different custom terms |
 | [OpenRCA 1.0](https://github.com/microsoft/OpenRCA) | 335 enterprise failures, over 68 GB, distributed through Google Drive | root component, reason, and time | CONDITIONAL; code is MIT but the external data has no separate license declaration | heavy external LLM RCA validation; Telecom lacks logs and topology gold is limited |
 | [LEMMA-RCA](https://lemma-rca.github.io/) | 4.74–6.66 GB preprocessed; 33–53.6 GB original | incident/root labels over large log+metric systems | CONDITIONAL | license cards disagree; no trace topology |
 | [OpenRCA 2.0](https://arxiv.org/abs/2606.27154) | paper only at audit time | claimed path-level supervision | BLOCKED | do not substitute OpenRCA 1.0 and call it 2.0 |
