@@ -48,10 +48,12 @@ The comparison matrix includes raw-telemetry LLM, partial-KG LLM, abduction only
 
 No benchmark is treated as sufficient on its own.
 
-- **Core RCA benchmark:** RCAEval RE2/RE3, using case-level Hugging Face access for smoke tests and the checksummed Zenodo archives for frozen runs.
+- **Primary realistic RCA corpus:** RCABench/Aegis TrainTicket with validated injections and Kubernetes-rich logs, metrics, and traces.
+- **Reproducibility and cross-system baseline:** RCAEval RE2/RE3, using case-level Hugging Face access for smoke tests and checksummed Zenodo archives for frozen runs.
+- **Exact topology-masking control:** DejaVu fault-dependency graphs; metrics-only, so it cannot validate text relation extraction.
 - **Event-KG extraction:** OntoLogX AIT annotations.
-- **Topology and multi-source auxiliaries:** Nezha, GAIA, Eadro, LO2v2, and the Multi-Source OpenStack dataset.
-- **External RCA validation:** OpenRCA and LEMMA-RCA, subject to storage and license gates.
+- **Topology and multi-source auxiliaries:** Nezha, LO2v2, GAIA, Eadro, and Multi-Source OpenStack.
+- **External RCA validation:** OpenRCA and LEMMA-RCA, subject to storage and data-license gates.
 
 Every dataset is registered with an access method, expected modalities, ground truth, license status, size, and readiness gate. Raw datasets are never committed.
 
@@ -61,6 +63,7 @@ Every dataset is registered with an access method, expected modalities, ground t
 python tools/datasets.py catalog
 python tools/datasets.py audit
 python tools/datasets.py plan rcaeval --profile smoke
+python tools/datasets.py plan rcabench_aegis --profile artifact_smoke
 python -m unittest discover -s tests
 ```
 
