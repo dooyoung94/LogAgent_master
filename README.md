@@ -1,0 +1,85 @@
+# LogAgent
+
+**Uncertainty-Aware Operational Topology Completion for Graph-Grounded LLM Root Cause Analysis under Observability Blind Spots**
+
+LogAgent studies a practical failure mode in AIOps: collectors, web crawlers, APM agents, traces, and CMDB exports provide only a partial and sometimes inconsistent view of the operational topology. The project recovers *candidate* missing relations with calibrated uncertainty and tests whether those relations improve root-cause and impact-path analysis.
+
+> Research status: protocol and data-readiness phase. This repository does not yet claim that DeBERTa or PSL improves relation recovery or RCA.
+
+## Precise research scope
+
+This work does **not** claim to generate an ontology schema from logs. We keep a reviewed TBox/schema fixed and study:
+
+1. operational ABox/KG population from heterogeneous telemetry;
+2. missing-relation completion on a fixed entity set;
+3. downstream RCA improvement caused by the completed graph.
+
+Open-set entity discovery and cross-source entity resolution are tracked as later extensions so that link recovery, entity discovery, and RCA are not conflated in the first paper.
+
+## Proposed pipeline
+
+```mermaid
+flowchart TD
+    A["Logs, metrics, traces, CMDB, web probes"] --> B["Observed event and operational KG"]
+    B --> C["Abductive typed candidates"]
+    C --> D["DeBERTa local evidence scores"]
+    D --> E["PSL joint soft-logic inference"]
+    E --> F["Calibrated graph or abstention"]
+    F --> G["Evidence-grounded LLM RCA"]
+```
+
+- **Abduction** proposes typed relations that could explain observations.
+- **DeBERTa NLI** scores local entailment and contradiction from evidence bundles.
+- **PSL** combines soft rules and evidence into soft truth values. It is not a formal proof engine.
+- **The LLM** returns a root component, cause path, impact path, evidence IDs, confidence, and an abstention decision.
+
+Initial relation vocabulary includes `CALLS`, `INSTANCE_OF`, `EXPOSES`, `ROUTES_TO`, `USES_DATASOURCE`, `EXECUTES`, and `LOCATED_ON`.
+
+## Evaluation is split into two tasks
+
+| Task | Question | Primary outputs |
+|---|---|---|
+| A — relation recovery | Were masked operational edges recovered without unsafe false edges? | typed edge F1/AUPRC, Hits@k, calibration, risk-coverage, path distortion |
+| B — RCA intervention | Does the recovered graph causally improve RCA over the partial graph? | root Top-k/MRR, cause-path F1, impact F1, evidence faithfulness, cost |
+
+The comparison matrix includes raw-telemetry LLM, partial-KG LLM, abduction only, abduction + DeBERTa, abduction + DeBERTa + PSL, full-graph oracle, wrong-edge stress tests, and a graph-free blind-spot baseline.
+
+## Data strategy
+
+No benchmark is treated as sufficient on its own.
+
+- **Core RCA benchmark:** RCAEval RE2/RE3, using case-level Hugging Face access for smoke tests and the checksummed Zenodo archives for frozen runs.
+- **Event-KG extraction:** OntoLogX AIT annotations.
+- **Topology and multi-source auxiliaries:** Nezha, GAIA, Eadro, LO2v2, and the Multi-Source OpenStack dataset.
+- **External RCA validation:** OpenRCA and LEMMA-RCA, subject to storage and license gates.
+
+Every dataset is registered with an access method, expected modalities, ground truth, license status, size, and readiness gate. Raw datasets are never committed.
+
+## Quick start
+
+```bash
+python tools/datasets.py catalog
+python tools/datasets.py audit
+python tools/datasets.py plan rcaeval --profile smoke
+python -m unittest discover -s tests
+```
+
+A download requires an explicit dataset, profile, destination, and confirmation flag. Large or license-ambiguous datasets remain plan-only until their gate is cleared.
+
+## Research controls
+
+- Random edge masks at 20/40/60% are retained only for comparability.
+- Primary masks model real blind spots: node/collector blackout, relation-type loss, trace dropout, identity-link loss, and time-window loss.
+- Ground-truth topology must come from held-out deployment manifests, service code, or complete traces that are not exposed as model evidence.
+- Unknown edges are not automatically treated as negatives; evaluation uses typed candidates and positive-unlabeled/open-world controls.
+- Five masking seeds, system-level holdouts, paired significance tests, and calibration reporting are mandatory.
+
+See [the research protocol](docs/research_protocol.md) and [dataset readiness matrix](docs/dataset_readiness.md).
+
+## Related work boundary
+
+[OntoLogX](https://github.com/LucaCtt/ontologx) is used as a strong front-end/event-KG baseline: it populates a fixed ontology from logs, but does not recover missing operational topology or evaluate RCA paths. [TORAI](https://arxiv.org/abs/2604.13522) is a critical graph-free baseline because it targets RCA under call-graph blind spots without reconstructing the graph.
+
+## Working branch
+
+Research scaffolding is developed on `research/reference-matrix-readiness`. The default branch remains untouched until the data and protocol gates are reviewed.
