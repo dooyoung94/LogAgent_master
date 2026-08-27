@@ -1,0 +1,34 @@
+# Data and experiment outputs
+data/raw/
+data/interim/
+data/processed/
+data/cache/
+artifacts/
+outputs/
+runs/
+checkpoints/
+models/
+
+# Keep data directories without committing datasets
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
