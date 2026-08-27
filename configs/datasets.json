@@ -335,11 +335,11 @@
       "ground_truth": ["root_component", "root_reason", "root_time"],
       "size": "approximately 68.5 GB plus working space",
       "license": {
-        "status": "verified",
-        "spdx": "MIT",
-        "evidence": "https://github.com/microsoft/OpenRCA/blob/main/LICENSE"
+        "status": "unverified",
+        "spdx": "NOASSERTION",
+        "evidence": "The repository code is MIT, but the externally hosted 68.5 GB dataset has no separate data-license declaration in the README or LICENSE."
       },
-      "limitations": ["Google Drive distribution", "Approximately 80 GB disk and 32 GB RAM recommended", "Topology gold is limited"],
+      "limitations": ["Google Drive distribution", "Data reuse terms require author/publisher confirmation", "Approximately 80 GB disk and 32 GB RAM recommended", "Topology gold is limited"],
       "sources": ["https://github.com/microsoft/OpenRCA"],
       "profiles": {
         "full": {
