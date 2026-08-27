@@ -55,6 +55,20 @@
             "re2tt_ts-auth-service_cpu_2/logs.parquet": 3351283,
             "re2tt_ts-auth-service_cpu_2/traces.parquet": 20050343
           },
+          "parquet_shapes": {
+            "re2tt_ts-auth-service_cpu_2/metrics.parquet": {
+              "rows": 1441,
+              "columns": 368
+            },
+            "re2tt_ts-auth-service_cpu_2/logs.parquet": {
+              "rows": 271919,
+              "columns": 3
+            },
+            "re2tt_ts-auth-service_cpu_2/traces.parquet": {
+              "rows": 838936,
+              "columns": 11
+            }
+          },
           "license": {
             "status": "verified",
             "spdx": "MIT",
