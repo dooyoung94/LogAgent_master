@@ -122,7 +122,13 @@
         "full": {
           "adapter": "zenodo",
           "record_id": 17251494,
-          "files": ["*"],
+          "files": ["datasets.zip"],
+          "checksums": {
+            "datasets.zip": "md5:c75dbe05a92e991eaeda2b7e856e8228"
+          },
+          "expected_bytes": {
+            "datasets.zip": 193910
+          },
           "approx_size": "193.9 KB"
         }
       }
@@ -168,6 +174,9 @@
           "checksums": {
             "rcabench-absolute_anomaly.tar.gz": "md5:96d32ae290e06be7d4e251be02b36cb8"
           },
+          "expected_bytes": {
+            "rcabench-absolute_anomaly.tar.gz": 13444974981
+          },
           "approx_size": "13.4 GB"
         }
       }
@@ -198,6 +207,50 @@
       }
     },
     {
+      "id": "dejavu",
+      "name": "DejaVu fault dependency graph datasets",
+      "tier": 1,
+      "readiness": "conditional",
+      "roles": ["topology_masking_control", "metric_rca_baseline"],
+      "modalities": ["metrics", "fault_dependency_graph"],
+      "ground_truth": ["graph_yml", "faults_csv", "fault_instances"],
+      "size": "1.24 GB processed archives; 4.5 GB including raw D splits",
+      "license": {
+        "status": "unverified",
+        "spdx": "NOASSERTION",
+        "evidence": "The GitHub code is MIT, but Zenodo record 6955909 does not declare a separate dataset license."
+      },
+      "limitations": ["Metrics only", "No logs or distributed traces", "Dataset reuse terms require author/publisher confirmation"],
+      "sources": [
+        "https://github.com/NetManAIOps/DejaVu",
+        "https://zenodo.org/records/6955909"
+      ],
+      "profiles": {
+        "small_c": {
+          "adapter": "zenodo",
+          "record_id": 6955909,
+          "files": ["C.zip"],
+          "checksums": {
+            "C.zip": "md5:37308c9161a8ea9aae70e5ebb6888a1d"
+          },
+          "approx_size": "17.5 MB"
+        },
+        "processed": {
+          "adapter": "zenodo",
+          "record_id": 6955909,
+          "files": ["A1.zip", "A2.zip", "B.zip", "C.zip", "D.zip"],
+          "checksums": {
+            "A1.zip": "md5:13f7dfef84cace7c8652a44b5aa6167a",
+            "A2.zip": "md5:6d76c9aacba554306877eaee7a86cb13",
+            "B.zip": "md5:452ffa694fbe370f66feebbd0e875909",
+            "C.zip": "md5:37308c9161a8ea9aae70e5ebb6888a1d",
+            "D.zip": "md5:4f92df43302f0aa89b6fe2d80c830fdd"
+          },
+          "approx_size": "approximately 1.24 GB"
+        }
+      }
+    },
+    {
       "id": "eadro",
       "name": "Eadro evaluation data",
       "tier": 1,
@@ -217,7 +270,15 @@
         "full": {
           "adapter": "zenodo",
           "record_id": 7615394,
-          "files": ["*"],
+          "files": ["SN Dataset.zip", "TT Dataset.zip"],
+          "checksums": {
+            "SN Dataset.zip": "md5:4c523faf64770b1e9a709cdd610e07c4",
+            "TT Dataset.zip": "md5:2d77861e4a025781e598d51866fd6f4e"
+          },
+          "expected_bytes": {
+            "SN Dataset.zip": 78753809,
+            "TT Dataset.zip": 48923113
+          },
           "approx_size": "127.7 MB"
         }
       }
@@ -272,6 +333,45 @@
           "adapter": "manual",
           "instructions": "Resolve the LICENSE/README conflict with the publisher, then clone the pinned revision.",
           "approx_size": "7.8 GB"
+        }
+      }
+    },
+    {
+      "id": "loghub_openstack",
+      "name": "Loghub OpenStack logs",
+      "tier": 2,
+      "readiness": "ready",
+      "roles": ["log_parser_pretraining", "event_kg_population"],
+      "modalities": ["logs"],
+      "ground_truth": ["none_for_topology_or_rca"],
+      "size": "5.4 MB compressed",
+      "license": {
+        "status": "verified",
+        "spdx": "LicenseRef-Source-Specific",
+        "evidence": "Zenodo record 8196385 is CC-BY-4.0; the GitHub repository has separate research/academic custom terms."
+      },
+      "limitations": ["Logs only", "No operational topology or RCA labels", "GitHub repository terms differ from the selected Zenodo artifact"],
+      "sources": [
+        "https://github.com/logpai/loghub",
+        "https://zenodo.org/records/8196385"
+      ],
+      "profiles": {
+        "zenodo": {
+          "adapter": "zenodo",
+          "record_id": 8196385,
+          "files": ["OpenStack.tar.gz"],
+          "checksums": {
+            "OpenStack.tar.gz": "md5:66bd42c07837a094d9b0ea2d036b5713"
+          },
+          "expected_bytes": {
+            "OpenStack.tar.gz": 5394691
+          },
+          "license": {
+            "status": "verified",
+            "spdx": "CC-BY-4.0",
+            "evidence": "https://zenodo.org/records/8196385"
+          },
+          "approx_size": "5.4 MB"
         }
       }
     },
