@@ -1,0 +1,405 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-08-27",
+  "policy": {
+    "raw_data_in_git": false,
+    "immutable_source_preferred": true,
+    "checksum_required_for_frozen_runs": true,
+    "license_review_required": true,
+    "default_action": "plan_only"
+  },
+  "datasets": [
+    {
+      "id": "rcaeval",
+      "name": "RCAEval",
+      "tier": 0,
+      "readiness": "ready",
+      "roles": ["core_rca", "relation_recovery", "masking_benchmark"],
+      "modalities": ["metrics", "logs", "traces"],
+      "ground_truth": ["root_cause_service", "root_cause_indicator", "fault_type", "inject_time"],
+      "size": "3.4 GB Hugging Face Parquet; 5.2 GB Zenodo archives",
+      "license": {
+        "status": "verified",
+        "spdx": "LicenseRef-Source-Specific",
+        "evidence": "Hugging Face/GitHub distribute under MIT; Zenodo record metadata is CC-BY-4.0. The selected profile controls the license."
+      },
+      "limitations": [
+        "No complete gold cause/impact path for every incident",
+        "Sock Shop cases do not provide traces"
+      ],
+      "sources": [
+        "https://github.com/phamquiluan/RCAEval",
+        "https://huggingface.co/datasets/phamquiluan/RCAEval",
+        "https://doi.org/10.5281/zenodo.14590730"
+      ],
+      "profiles": {
+        "smoke": {
+          "adapter": "huggingface",
+          "repo_id": "phamquiluan/RCAEval",
+          "revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+          "allow_patterns": [
+            "cases.parquet",
+            "re2tt_ts-auth-service_cpu_2/*"
+          ],
+          "checksums": {
+            "cases.parquet": "sha256:c49a288920dbba2e8e724679a14636d5c7eb2b45426bba14007ef79a6c0ab1bb",
+            "re2tt_ts-auth-service_cpu_2/inject_time.txt": "sha256:ecc8ac8295583809dc546a829b3079120d7762f44cca6a573aa03706f741b8b3",
+            "re2tt_ts-auth-service_cpu_2/metrics.parquet": "sha256:16597725c18258ce0a3bdedc1833fb52ad6638fdc5068e944dce23c1bbde6d93",
+            "re2tt_ts-auth-service_cpu_2/logs.parquet": "sha256:0cc2ed5ff13a20cf776a42d9d4c3914981afe025fbaa69109ac652d9c7502537",
+            "re2tt_ts-auth-service_cpu_2/traces.parquet": "sha256:3d704979b684c5450a3ddcd48bb91a71d07c485edc878a2969b04ff152b5857c"
+          },
+          "expected_bytes": {
+            "cases.parquet": 29500,
+            "re2tt_ts-auth-service_cpu_2/inject_time.txt": 10,
+            "re2tt_ts-auth-service_cpu_2/metrics.parquet": 933362,
+            "re2tt_ts-auth-service_cpu_2/logs.parquet": 3351283,
+            "re2tt_ts-auth-service_cpu_2/traces.parquet": 20050343
+          },
+          "license": {
+            "status": "verified",
+            "spdx": "MIT",
+            "evidence": "https://huggingface.co/datasets/phamquiluan/RCAEval"
+          },
+          "approx_size": "24.4 MB",
+          "expected_case": "re2tt_ts-auth-service_cpu_2"
+        },
+        "full_hf": {
+          "adapter": "huggingface",
+          "repo_id": "phamquiluan/RCAEval",
+          "revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+          "allow_patterns": ["*"],
+          "license": {
+            "status": "verified",
+            "spdx": "MIT",
+            "evidence": "https://huggingface.co/datasets/phamquiluan/RCAEval"
+          },
+          "approx_size": "3.4 GB"
+        },
+        "frozen_re2_re3": {
+          "adapter": "zenodo",
+          "record_id": 14590730,
+          "files": [
+            "RE2-OB.zip",
+            "RE2-TT.zip",
+            "RE3-OB.zip",
+            "RE3-TT.zip"
+          ],
+          "checksums": {
+            "RE2-OB.zip": "md5:b9e23f8842c404b396ffd2becff15de4",
+            "RE2-TT.zip": "md5:a7fbcd1ada406067dcc50771ae398408",
+            "RE3-OB.zip": "md5:96947589084348f9d12cba370313458e",
+            "RE3-TT.zip": "md5:ae1eb5906fb4d13a16a6a5e58faaf30b"
+          },
+          "license": {
+            "status": "verified",
+            "spdx": "CC-BY-4.0",
+            "evidence": "https://zenodo.org/records/14590730"
+          },
+          "approx_size": "4.4 GB"
+        }
+      }
+    },
+    {
+      "id": "ontologx",
+      "name": "OntoLogX evaluation dataset",
+      "tier": 0,
+      "readiness": "ready",
+      "roles": ["event_kg_extraction", "ontology_population"],
+      "modalities": ["logs", "gold_rdf_ttl"],
+      "ground_truth": ["gold_event_triples", "entity_links", "relation_links"],
+      "size": "193.9 KB",
+      "license": {
+        "status": "verified",
+        "spdx": "CC-BY-4.0",
+        "evidence": "https://zenodo.org/records/17251494"
+      },
+      "limitations": ["Cybersecurity events, not microservice RCA", "No operational topology or RCA path labels"],
+      "sources": [
+        "https://github.com/LucaCtt/ontologx",
+        "https://doi.org/10.5281/zenodo.17251494"
+      ],
+      "profiles": {
+        "full": {
+          "adapter": "zenodo",
+          "record_id": 17251494,
+          "files": ["*"],
+          "approx_size": "193.9 KB"
+        }
+      }
+    },
+    {
+      "id": "rcabench_aegis",
+      "name": "RCABench / Aegis TrainTicket benchmark",
+      "tier": 0,
+      "readiness": "ready",
+      "roles": ["realistic_rca", "structured_blind_spots", "external_validation"],
+      "modalities": ["metrics", "logs", "traces", "injection_metadata"],
+      "ground_truth": ["validated_fault_injections", "root_component", "fault_type"],
+      "size": "approximately 13.4 GB",
+      "license": {
+        "status": "verified",
+        "spdx": "CC-BY-4.0",
+        "evidence": "https://zenodo.org/records/17105974"
+      },
+      "limitations": ["Large tar artifacts", "Use exact released artifact version and retain attribution"],
+      "sources": [
+        "https://operationspai.github.io/revisiting-rca-evaluation/",
+        "https://github.com/OperationsPAI/aegis",
+        "https://doi.org/10.5281/zenodo.17105974"
+      ],
+      "profiles": {
+        "artifact_smoke": {
+          "adapter": "zenodo",
+          "record_id": 17105974,
+          "files": [
+            "rcabench-fse-26.zip",
+            "rcabench-platform-feat-fse26.zip"
+          ],
+          "checksums": {
+            "rcabench-fse-26.zip": "md5:51b80c5d7b79c67e531c2639ec43412f",
+            "rcabench-platform-feat-fse26.zip": "md5:b363d3a0fff3a1047c907648afbe8575"
+          },
+          "approx_size": "approximately 2.0 MB"
+        },
+        "full": {
+          "adapter": "zenodo",
+          "record_id": 17105974,
+          "files": ["rcabench-absolute_anomaly.tar.gz"],
+          "checksums": {
+            "rcabench-absolute_anomaly.tar.gz": "md5:96d32ae290e06be7d4e251be02b36cb8"
+          },
+          "approx_size": "13.4 GB"
+        }
+      }
+    },
+    {
+      "id": "nezha",
+      "name": "Nezha multi-source RCA data",
+      "tier": 1,
+      "readiness": "ready",
+      "roles": ["relation_recovery", "rca_baseline"],
+      "modalities": ["metrics", "logs", "traces", "trace_ids"],
+      "ground_truth": ["service_level_root", "inner_service_root", "fault_case"],
+      "size": "approximately 343 MB Git repository",
+      "license": {
+        "status": "verified",
+        "spdx": "MIT",
+        "evidence": "https://github.com/IntelligentDDS/Nezha/blob/main/LICENSE"
+      },
+      "limitations": ["Legacy Python 3.6 reproduction environment", "45 TrainTicket and 56 Online Boutique fault cases"],
+      "sources": ["https://github.com/IntelligentDDS/Nezha"],
+      "profiles": {
+        "full": {
+          "adapter": "github",
+          "repo": "https://github.com/IntelligentDDS/Nezha.git",
+          "revision": "main",
+          "approx_size": "343 MB"
+        }
+      }
+    },
+    {
+      "id": "eadro",
+      "name": "Eadro evaluation data",
+      "tier": 1,
+      "readiness": "conditional",
+      "roles": ["relation_recovery", "rca_baseline"],
+      "modalities": ["metrics", "logs", "traces"],
+      "ground_truth": ["fault_injection", "root_service"],
+      "size": "127.7 MB",
+      "license": {
+        "status": "unverified",
+        "spdx": "NOASSERTION",
+        "evidence": "https://zenodo.org/records/7615394"
+      },
+      "limitations": ["License metadata must be confirmed before automatic download or redistribution"],
+      "sources": ["https://doi.org/10.5281/zenodo.7615394"],
+      "profiles": {
+        "full": {
+          "adapter": "zenodo",
+          "record_id": 7615394,
+          "files": ["*"],
+          "approx_size": "127.7 MB"
+        }
+      }
+    },
+    {
+      "id": "openstack_multisource",
+      "name": "Multi-Source OpenStack fault dataset",
+      "tier": 1,
+      "readiness": "conditional",
+      "roles": ["multi_source_relation_recovery", "fault_injection"],
+      "modalities": ["metrics", "logs", "traces", "workload_scripts"],
+      "ground_truth": ["fault_scripts", "Rally workload", "fault_timing"],
+      "size": "650.5 MB",
+      "license": {
+        "status": "unverified",
+        "spdx": "NOASSERTION",
+        "evidence": "https://zenodo.org/records/3549604"
+      },
+      "limitations": ["License and exact label schema require audit"],
+      "sources": ["https://doi.org/10.5281/zenodo.3549604"],
+      "profiles": {
+        "full": {
+          "adapter": "zenodo",
+          "record_id": 3549604,
+          "files": ["concurrent data.zip", "sequential_data.zip"],
+          "checksums": {
+            "concurrent data.zip": "md5:be2ba2f17f774e7f3f045dcf5f406ff0",
+            "sequential_data.zip": "md5:c54229949981264c2d76a50a396a2bf6"
+          },
+          "approx_size": "650.5 MB"
+        }
+      }
+    },
+    {
+      "id": "gaia",
+      "name": "GAIA dataset",
+      "tier": 1,
+      "readiness": "conditional",
+      "roles": ["topology_evidence", "multi_source_pretraining"],
+      "modalities": ["metrics", "logs", "traces", "injection_records"],
+      "ground_truth": ["anomaly_injection_records", "trace_parentage"],
+      "size": "approximately 7.8 GB Git repository",
+      "license": {
+        "status": "conflict",
+        "spdx": "NOASSERTION",
+        "evidence": "Repository LICENSE is GPL-2.0 while README states Apache-2.0"
+      },
+      "limitations": ["Resolve upstream license conflict before automated acquisition", "Large Git history/data payload"],
+      "sources": ["https://github.com/CloudWise-OpenSource/GAIA-DataSet"],
+      "profiles": {
+        "full": {
+          "adapter": "manual",
+          "instructions": "Resolve the LICENSE/README conflict with the publisher, then clone the pinned revision.",
+          "approx_size": "7.8 GB"
+        }
+      }
+    },
+    {
+      "id": "lo2v2",
+      "name": "LO2v2 Light-OAuth2 observability dataset",
+      "tier": 2,
+      "readiness": "ready",
+      "roles": ["topology_recovery", "observability_degradation"],
+      "modalities": ["metrics", "logs", "traces", "source", "replication_package"],
+      "ground_truth": ["test_run", "architecture", "telemetry_configuration"],
+      "size": "65.6 GB raw archive; 70.0 GB for all published files",
+      "license": {
+        "status": "verified",
+        "spdx": "CC-BY-4.0",
+        "evidence": "https://zenodo.org/records/18937117"
+      },
+      "limitations": ["No standard root-cause-service benchmark labels", "Full extraction is approximately 640 GB"],
+      "sources": ["https://doi.org/10.5281/zenodo.18937117"],
+      "profiles": {
+        "metadata_and_source": {
+          "adapter": "zenodo",
+          "record_id": 18937117,
+          "files": ["light-oauth2.zip", "LO2v2_index.json"],
+          "checksums": {
+            "light-oauth2.zip": "md5:19fd02bd7410759ed8d33ae078cee746",
+            "LO2v2_index.json": "md5:2efcff67820ba1df40fae362919271eb"
+          },
+          "approx_size": "50.7 MB"
+        },
+        "full": {
+          "adapter": "zenodo",
+          "record_id": 18937117,
+          "files": [
+            "light-oauth2-logs.zip",
+            "light-oauth2-metrics.zip",
+            "light-oauth2.zip",
+            "LO2v2-metrics.zip",
+            "LO2v2.zip",
+            "LO2v2_index.json"
+          ],
+          "checksums": {
+            "light-oauth2-logs.zip": "md5:0be676a80f33e9a3cd51971a974682e4",
+            "light-oauth2-metrics.zip": "md5:2fe6548d1ad9115ad37e7663015b907c",
+            "light-oauth2.zip": "md5:19fd02bd7410759ed8d33ae078cee746",
+            "LO2v2-metrics.zip": "md5:056aeac14eedc2cb67f1b527e1a08512",
+            "LO2v2.zip": "md5:51f8a675dfd5d174eda20dba5fa21feb",
+            "LO2v2_index.json": "md5:2efcff67820ba1df40fae362919271eb"
+          },
+          "approx_size": "approximately 70.0 GB"
+        }
+      }
+    },
+    {
+      "id": "openrca1",
+      "name": "OpenRCA 1.0",
+      "tier": 2,
+      "readiness": "conditional",
+      "roles": ["external_llm_rca_validation"],
+      "modalities": ["metrics", "logs", "traces"],
+      "ground_truth": ["root_component", "root_reason", "root_time"],
+      "size": "approximately 68.5 GB plus working space",
+      "license": {
+        "status": "verified",
+        "spdx": "MIT",
+        "evidence": "https://github.com/microsoft/OpenRCA/blob/main/LICENSE"
+      },
+      "limitations": ["Google Drive distribution", "Approximately 80 GB disk and 32 GB RAM recommended", "Topology gold is limited"],
+      "sources": ["https://github.com/microsoft/OpenRCA"],
+      "profiles": {
+        "full": {
+          "adapter": "manual",
+          "instructions": "Use the current Google Drive link in the official README; record file hashes locally before use.",
+          "approx_size": "68.5 GB"
+        }
+      }
+    },
+    {
+      "id": "openrca2",
+      "name": "OpenRCA 2.0",
+      "tier": 3,
+      "readiness": "blocked",
+      "roles": ["future_path_supervision"],
+      "modalities": ["metrics", "logs", "traces"],
+      "ground_truth": ["claimed_path_level_annotations"],
+      "size": "not publicly released",
+      "license": {
+        "status": "unverified",
+        "spdx": "NOASSERTION",
+        "evidence": "Paper promises release after acceptance"
+      },
+      "limitations": ["No public dataset artifact available as of the registry update date"],
+      "sources": ["https://arxiv.org/abs/2606.27154"],
+      "profiles": {
+        "future": {
+          "adapter": "manual",
+          "instructions": "Do not substitute OpenRCA 1.0. Re-audit after an official 2.0 artifact is published.",
+          "approx_size": "unknown"
+        }
+      }
+    },
+    {
+      "id": "lemma_rca",
+      "name": "LEMMA-RCA datasets",
+      "tier": 2,
+      "readiness": "conditional",
+      "roles": ["cross_domain_rca_validation"],
+      "modalities": ["metrics", "logs"],
+      "ground_truth": ["incident_root_labels"],
+      "size": "4.74-6.66 GB preprocessed; 33-53.6 GB original",
+      "license": {
+        "status": "conflict",
+        "spdx": "NOASSERTION",
+        "evidence": "Hugging Face organization/card metadata differs between CC-BY-NC-4.0 and CC-BY-ND-4.0"
+      },
+      "limitations": ["No trace topology", "Resolve license metadata before acquisition or redistribution"],
+      "sources": [
+        "https://lemma-rca.github.io/",
+        "https://huggingface.co/Lemma-RCA-NEC",
+        "https://github.com/lemma-rca/rca_baselines"
+      ],
+      "profiles": {
+        "preprocessed": {
+          "adapter": "manual",
+          "instructions": "Select the Product Review or Cloud preprocessed repository only after license clarification.",
+          "approx_size": "4.74-6.66 GB"
+        }
+      }
+    }
+  ]
+}
