@@ -123,6 +123,16 @@ def validate_registry(registry: dict[str, Any]) -> list[str]:
             for filename, byte_count in profile.get("expected_bytes", {}).items():
                 if not filename or not isinstance(byte_count, int) or byte_count < 0:
                     errors.append(f"{plabel}: invalid expected byte count for {filename!r}")
+            for filename, shape in profile.get("parquet_shapes", {}).items():
+                if (
+                    not filename.endswith(".parquet")
+                    or not isinstance(shape, dict)
+                    or not isinstance(shape.get("rows"), int)
+                    or not isinstance(shape.get("columns"), int)
+                    or shape["rows"] < 0
+                    or shape["columns"] < 0
+                ):
+                    errors.append(f"{plabel}: invalid parquet shape for {filename!r}")
     return errors
 
 
@@ -271,6 +281,63 @@ def _checksum(path: Path, specification: str) -> str:
     return f"{algorithm}:{actual}"
 
 
+def _safe_relative_path(target: Path, relative_name: str) -> Path:
+    relative = Path(relative_name)
+    if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+        raise RegistryError(f"Unsafe relative filename: {relative_name!r}")
+    resolved = (target / relative).resolve()
+    try:
+        resolved.relative_to(target.resolve())
+    except ValueError as exc:
+        raise RegistryError(f"Filename escapes target: {relative_name!r}") from exc
+    return resolved
+
+
+def verify_local_profile(profile: dict[str, Any], target: Path, parse_parquet: bool) -> dict[str, Any]:
+    target = target.resolve()
+    if not target.is_dir():
+        raise RegistryError(f"Profile directory not found: {target}")
+
+    checksums = profile.get("checksums", {})
+    expected_bytes = profile.get("expected_bytes", {})
+    names = sorted(set(checksums) | set(expected_bytes))
+    verified: dict[str, Any] = {}
+    for relative_name in names:
+        path = _safe_relative_path(target, relative_name)
+        if not path.is_file():
+            raise RegistryError(f"Expected file is missing: {relative_name}")
+        actual_bytes = path.stat().st_size
+        wanted_bytes = expected_bytes.get(relative_name)
+        if wanted_bytes is not None and actual_bytes != wanted_bytes:
+            raise RegistryError(
+                f"Size mismatch for {relative_name}: expected {wanted_bytes}, got {actual_bytes}"
+            )
+        result: dict[str, Any] = {"bytes": actual_bytes}
+        if relative_name in checksums:
+            result["checksum"] = _checksum(path, checksums[relative_name])
+        verified[relative_name] = result
+
+    shapes = profile.get("parquet_shapes", {})
+    if parse_parquet and shapes:
+        try:
+            import pyarrow.parquet as parquet
+        except ImportError as exc:
+            raise RegistryError("Install pyarrow to validate Parquet shape metadata") from exc
+        for relative_name, expected_shape in shapes.items():
+            path = _safe_relative_path(target, relative_name)
+            if not path.is_file():
+                raise RegistryError(f"Expected Parquet file is missing: {relative_name}")
+            metadata = parquet.ParquetFile(path).metadata
+            actual_shape = {"rows": metadata.num_rows, "columns": metadata.num_columns}
+            if actual_shape != expected_shape:
+                raise RegistryError(
+                    f"Parquet shape mismatch for {relative_name}: "
+                    f"expected {expected_shape}, got {actual_shape}"
+                )
+            verified.setdefault(relative_name, {})["parquet_shape"] = actual_shape
+    return verified
+
+
 def _download(url: str, destination: Path) -> None:
     partial = destination.with_name(destination.name + ".part")
     request = Request(url, headers={"User-Agent": "LogAgent-dataset-auditor/1"})
@@ -328,6 +395,12 @@ def _fetch_zenodo(dataset: dict[str, Any], profile_name: str, profile: dict[str,
             raise RegistryError(f"No download URL for Zenodo file {filename}")
         destination = target / filename
         _download(url, destination)
+        expected_bytes = profile.get("expected_bytes", {}).get(filename)
+        if expected_bytes is not None and destination.stat().st_size != expected_bytes:
+            raise RegistryError(
+                f"Size mismatch for {filename}: expected {expected_bytes}, "
+                f"got {destination.stat().st_size}"
+            )
         checksum = expected.get(filename) or item.get("checksum")
         if checksum:
             resolved[filename] = _checksum(destination, checksum)
@@ -437,6 +510,25 @@ def command_fetch(
     print(f"complete: {target}")
 
 
+def command_verify(
+    dataset: dict[str, Any], profile_name: str, target: Path, parse_parquet: bool
+) -> None:
+    profile = profile_by_name(dataset, profile_name)
+    verified = verify_local_profile(profile, target, parse_parquet=parse_parquet)
+    print(
+        json.dumps(
+            {
+                "dataset": dataset["id"],
+                "profile": profile_name,
+                "target": str(target.resolve()),
+                "verified": verified,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY)
@@ -447,6 +539,12 @@ def build_parser() -> argparse.ArgumentParser:
     plan = subparsers.add_parser("plan", help="Show one acquisition plan without downloading")
     plan.add_argument("dataset")
     plan.add_argument("--profile", required=True)
+
+    verify = subparsers.add_parser("verify", help="Verify a local profile against pinned metadata")
+    verify.add_argument("dataset")
+    verify.add_argument("--profile", required=True)
+    verify.add_argument("--path", type=Path, required=True)
+    verify.add_argument("--parse-parquet", action="store_true")
 
     fetch = subparsers.add_parser("fetch", help="Explicitly acquire one ready dataset profile")
     fetch.add_argument("dataset")
@@ -474,6 +572,13 @@ def main(argv: Iterable[str] | None = None) -> int:
         elif args.command == "fetch":
             command_fetch(
                 dataset_by_id(registry, args.dataset), args.profile, args.dest, args
+            )
+        elif args.command == "verify":
+            command_verify(
+                dataset_by_id(registry, args.dataset),
+                args.profile,
+                args.path,
+                args.parse_parquet,
             )
         return 0
     except (RegistryError, OSError, subprocess.CalledProcessError) as exc:
