@@ -13,6 +13,7 @@ from tools.datasets import (
     load_registry,
     profile_by_name,
     validate_registry,
+    verify_local_profile,
 )
 
 
@@ -60,6 +61,32 @@ class DatasetRegistryTest(unittest.TestCase):
                     "sha256:704409583ff3513dfb108694908218241b84ab4abb4b5154628de07e4d624294",
                 ),
             )
+
+    def test_local_profile_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            path = target / "sample.bin"
+            path.write_bytes(b"logagent")
+            verified = verify_local_profile(
+                {
+                    "checksums": {
+                        "sample.bin": "sha256:704409583ff3513dfb108694908218241b84ab4abb4b5154628de07e4d624294"
+                    },
+                    "expected_bytes": {"sample.bin": 8},
+                },
+                target,
+                parse_parquet=False,
+            )
+            self.assertEqual(8, verified["sample.bin"]["bytes"])
+
+    def test_local_profile_rejects_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(RegistryError):
+                verify_local_profile(
+                    {"checksums": {"../escape": "md5:d41d8cd98f00b204e9800998ecf8427e"}},
+                    Path(directory),
+                    parse_parquet=False,
+                )
 
 
 if __name__ == "__main__":
