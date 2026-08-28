@@ -653,6 +653,22 @@ class _Span:
         return self.end - self.start
 
 
+@dataclass(frozen=True)
+class TemporalContainmentDetail:
+    """Model-visible support for one abductively proposed ``CALLS`` edge.
+
+    ``boundary_count`` counts child-span occurrences, while ``trace_count``
+    counts distinct whole traces.  Keeping both values prevents later stages
+    from confusing a frequently repeated span boundary with many independent
+    traces.  No reference edge, mask target, or evaluator label is stored.
+    """
+
+    score: float
+    evidence_ids: tuple[str, ...]
+    trace_count: int
+    boundary_count: int
+
+
 def _span(record: Any, index: int) -> _Span | None:
     trace_id = _field(record, "trace_id", "traceid", "traceId")
     service_id = _field(
@@ -707,10 +723,12 @@ def _span(record: Any, index: int) -> _Span | None:
     return _Span(str(trace_id), str(span_id), str(service_id), start, end, parent_text)
 
 
-def temporal_containment_support(
+def temporal_containment_details(
     context: InferenceContext,
-) -> Mapping[tuple[str, str, str], tuple[float, tuple[str, ...]]]:
-    """Abduce CALLS edges from immediate, unambiguous interval containment.
+    *,
+    include_null_parent: bool = False,
+) -> Mapping[tuple[str, str, str], TemporalContainmentDetail]:
+    """Abduce detailed CALLS support from unambiguous interval containment.
 
     The masked model partition retains an ordinary-looking but unmatched parent
     ID.  A child is therefore selected when its non-null ``parent_span_id`` is
@@ -731,6 +749,7 @@ def temporal_containment_support(
 
     evidence: dict[tuple[str, str, str], set[str]] = {}
     traces: dict[tuple[str, str, str], set[str]] = {}
+    boundaries: dict[tuple[str, str, str], int] = {}
     for trace_id, trace_spans in by_trace.items():
         span_ids = {span.span_id for span in trace_spans}
         # Wider spans with the same start are visited first and can therefore be
@@ -743,7 +762,7 @@ def temporal_containment_support(
             parent_unmatched = (
                 child.parent_span_id is not None
                 and child.parent_span_id not in span_ids
-            )
+            ) or (include_null_parent and child.parent_span_id is None)
             if not parent_unmatched:
                 active.append(child)
                 continue
@@ -772,14 +791,31 @@ def temporal_containment_support(
             key = parent.service_id, "CALLS", child.service_id
             evidence.setdefault(key, set()).update({parent.span_id, child.span_id})
             traces.setdefault(key, set()).add(trace_id)
+            boundaries[key] = boundaries.get(key, 0) + 1
             active.append(child)
 
-    output: dict[tuple[str, str, str], tuple[float, tuple[str, ...]]] = {}
+    output: dict[tuple[str, str, str], TemporalContainmentDetail] = {}
     for key, evidence_ids in evidence.items():
         unique_trace_count = len(traces[key])
         score = 1.0 - math.exp(-float(unique_trace_count))
-        output[key] = score, tuple(sorted(evidence_ids))
+        output[key] = TemporalContainmentDetail(
+            score=score,
+            evidence_ids=tuple(sorted(evidence_ids)),
+            trace_count=unique_trace_count,
+            boundary_count=boundaries[key],
+        )
     return output
+
+
+def temporal_containment_support(
+    context: InferenceContext,
+) -> Mapping[tuple[str, str, str], tuple[float, tuple[str, ...]]]:
+    """Backward-compatible score/evidence view of containment details."""
+
+    return {
+        key: (detail.score, detail.evidence_ids)
+        for key, detail in temporal_containment_details(context).items()
+    }
 
 
 def _safe_record_text(record: Any) -> str:

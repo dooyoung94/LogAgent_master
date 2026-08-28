@@ -1,0 +1,164 @@
+{
+  "schema_version": 2,
+  "status": "UNRESOLVED",
+  "run_date": "2026-08-28",
+  "experiment_id": "rcaeval-call-recovery-cumulative-smoke-v2",
+  "dataset_revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+  "source_run": "outputs/rcaeval_smoke_v2/full_real_offline_20260828_v4",
+  "source_summary_sha256": "f99c63740d1d871574a4f37c97fd5b80e7f15f91bb6de9b6c0d9f9bc1876d63a",
+  "config_sha256": "e5faa9692997dc224125937e375106c80832e2de7fc6ec1e12105fc3bf8396f6",
+  "implementation_sha256": "8837d54b0fccb12f4486d72226f8f9a233c47d964c13d6516f4bddb2c2e06d0a",
+  "claim_scope": "single-incident single-seed synthetic relation-recovery smoke; not causal RCA",
+  "ci_status": "NOT_ESTIMABLE_SINGLE_INCIDENT_SEED_NESTED_MASKS",
+  "split": {
+    "assignment": "sha256(revision|incident_id|trace_id) mod 100",
+    "reference_traces": 2539,
+    "model_traces": 3936,
+    "trace_overlap": 0,
+    "reference_trace_ids_sha256": "10f149344d59135c6b294fb0fa40678725854f3c789280d4cfdb28e2990783ee",
+    "model_trace_ids_sha256": "0dc92e054c0ecb4e842062d43740c8c0a5f35d256a410f5dc3ad9760540dfb54"
+  },
+  "backend": {
+    "deberta_status": "READY",
+    "deberta_revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "deberta_onnx_sha256": "03c2221313dc0c3eac9cec1f746d1319d33f2c2901fcce1c0f08f4daac9b6dae",
+    "deberta_batch_size": 1,
+    "telemetry_disabled": true,
+    "direction_contrast": {
+      "forward_entailment": 0.9161049683337436,
+      "reverse_entailment": 0.9486781535212421,
+      "margin": -0.03257318518749852,
+      "gate_passed": false
+    },
+    "batch_composition": {
+      "max_absolute_delta": 0.04010976572621838,
+      "tolerance": 0.000001,
+      "gate_passed": false
+    },
+    "psl_status": "READY",
+    "psl_runtime_version": "2.4.0",
+    "psl_runtime_commit": "aad67da",
+    "jpype_version": "1.7.1",
+    "compatibility_override": true
+  },
+  "source_artifact_sha256": {
+    "component_l2": {
+      "mask_manifest.json": "a04ec185a1b98580d5f47af55e1666e9cb4c229f9acd15d975a6c6a211c398d5",
+      "stage_activation.json": "dda33193bb9eea5da049a8bebd53e9cf73e0b03c2f5ab75ee30e34975587bd41",
+      "A2.parquet": "1ea05291dd708309f520e1215d672e71cabe8b49a6ca6755c1939c9a8aaa2eec",
+      "A3.parquet": "1e25bbac3746933ed94861d53bb3eb1d5d6f20e61ca28448d68375a9f71cf73b",
+      "A4.parquet": "9251724304ffd9d139b5d2023211f88d5ac810f3a31768104b68e00661f3d505",
+      "A5.parquet": "7720fb0ccc04ba900def69fc2d889ff49b270afdafb45394828608f8dbf364f5"
+    },
+    "iid20_l2": {
+      "mask_manifest.json": "b0a415cea91137b1e12f9f75b0d9cc08adb3103ea5a3c100432c39dbfcd38f0c",
+      "stage_activation.json": "64b6e780ae0a13df210e53572917130f0af2d5528e1537433c8e69d544aafe3a",
+      "A2.parquet": "37a1d38421ba229308b39511acd202a4185bda8c225ac4824ead7e5fbe6341a9",
+      "A3.parquet": "7b6267027378db9ff1411b9fa934d1c417057ba827e1bec25939c2352353bcea",
+      "A4.parquet": "7faaa44bd7f426e15cb191664ed6dc8094d92b4642b97a71eae87c580e7ec2a8",
+      "A5.parquet": "4c357cabf6948373e9cc2270f34f5aa0e44201b2f510468c8177cf41ee5ab6b6"
+    },
+    "iid40_l2": {
+      "mask_manifest.json": "0d8d594ead3b509377ee22da6db71f0d0a363fee9ab3826a5257cb7ed11a3b93",
+      "stage_activation.json": "90b3a90785187af8ed9d7c3122e2c3ead3715a7e335458d08df179eb5a397f2e",
+      "A2.parquet": "da8b9d3fab29235daed05f23f52f7cec2540a59861eef1e54920e3fe8685bf89",
+      "A3.parquet": "48eb3a0d621199689b38325f88a19d520036e121907ed9f16a134616febff77e",
+      "A4.parquet": "5db8dd46a861e7fdcbc762d1ad80455599806b56c950644021c6ec003e9842e1",
+      "A5.parquet": "1758b99b98c6020d678491720c34b8c804229b57ab1fde1c41958b8db9a85964"
+    },
+    "iid60_l2": {
+      "mask_manifest.json": "0aa357895ca629aab076b60def90f7ef09b8e499874734a125aa093571fc6ff7",
+      "stage_activation.json": "37c9d4728813458769d8e2ffa047a0df3fe7c3b843494eb653a60021a4506c78",
+      "A2.parquet": "44372f5c1fcc31cbae4dacefa07c4a0bfb3faaee563a807c94403a15cc982c45",
+      "A3.parquet": "359f9f2a924db39b84e5031ce8de5758d2a2122b3a304e0d648c144068198645",
+      "A4.parquet": "6964b1681d60b53f538faf16042db516945e7938dc3fa877e8b1762a5c7f13b6",
+      "A5.parquet": "bbb10e45a4e675b2bcd78614a1f408fcecbd8c1fc8dbb38bb2e2ec31a8cffdc7"
+    }
+  },
+  "masks": [
+    {
+      "mask_id": "iid20_l2",
+      "target_count": 10,
+      "redacted_boundary_spans": 9408,
+      "typed_universe_count": 657,
+      "a2_proposal_count": 13,
+      "candidate_compression_ratio": 0.980213,
+      "a2": {"accepted": 13, "masked_recall": 1.0, "silver_precision_lower_bound": 0.7692307692307693},
+      "a3": {"accepted": 0, "masked_recall": 0.0, "mrr_within_p2": 0.95, "max_pair_tokens": 93, "truncation_count": 0},
+      "a4": {"accepted": 0, "masked_recall": 0.0, "mrr_within_p2": 0.9, "max_pair_tokens": 446, "truncation_count": 0},
+      "a5": {"accepted": 0, "masked_recall": 0.0, "stage_activated": false, "reason": "NO_ELIGIBLE_A4_RELATIONS"},
+      "stage_gate": "FAIL"
+    },
+    {
+      "mask_id": "iid40_l2",
+      "target_count": 21,
+      "redacted_boundary_spans": 21906,
+      "typed_universe_count": 668,
+      "a2_proposal_count": 26,
+      "candidate_compression_ratio": 0.961078,
+      "a2": {"accepted": 26, "masked_recall": 1.0, "silver_precision_lower_bound": 0.8076923076923077},
+      "a3": {"accepted": 0, "masked_recall": 0.0, "mrr_within_p2": 0.9523809523809523, "max_pair_tokens": 93, "truncation_count": 0},
+      "a4": {"accepted": 0, "masked_recall": 0.0, "mrr_within_p2": 0.9523809523809523, "max_pair_tokens": 439, "truncation_count": 0},
+      "a5": {"accepted": 0, "masked_recall": 0.0, "stage_activated": false, "reason": "NO_ELIGIBLE_A4_RELATIONS"},
+      "stage_gate": "FAIL"
+    },
+    {
+      "mask_id": "iid60_l2",
+      "target_count": 31,
+      "redacted_boundary_spans": 60294,
+      "typed_universe_count": 678,
+      "a2_proposal_count": 48,
+      "candidate_compression_ratio": 0.929204,
+      "a2": {"accepted": 48, "masked_recall": 1.0, "silver_precision_lower_bound": 0.6458333333333334},
+      "a3": {"accepted": 2, "masked_recall": 0.0, "mrr_within_p2": 0.8629032258064516, "max_pair_tokens": 93, "truncation_count": 0},
+      "a4": {"accepted": 0, "masked_recall": 0.0, "mrr_within_p2": 0.8951612903225806, "max_pair_tokens": 423, "truncation_count": 0},
+      "a5": {"accepted": 0, "masked_recall": 0.0, "stage_activated": false, "reason": "NO_ELIGIBLE_A4_RELATIONS"},
+      "stage_gate": "FAIL"
+    },
+    {
+      "mask_id": "component_l2",
+      "component_id": "rcaeval:train-ticket:service:ts-preserve-service",
+      "target_count": 10,
+      "redacted_boundary_spans": 568,
+      "typed_universe_count": 657,
+      "a2_proposal_count": 10,
+      "candidate_compression_ratio": 0.984779,
+      "a2": {"accepted": 10, "masked_recall": 1.0, "silver_precision_lower_bound": 1.0},
+      "a3": {"accepted": 0, "masked_recall": 0.0, "mrr_within_p2": 1.0, "max_pair_tokens": 87, "truncation_count": 0},
+      "a4": {"accepted": 0, "masked_recall": 0.0, "mrr_within_p2": 1.0, "max_pair_tokens": 400, "truncation_count": 0},
+      "a5": {"accepted": 0, "masked_recall": 0.0, "stage_activated": false, "reason": "NO_ELIGIBLE_A4_RELATIONS"},
+      "stage_gate": "FAIL"
+    }
+  ],
+  "conclusions": {
+    "a2_candidate_inheritance": "SUPPORTED",
+    "a2_acceptance_inheritance": "NOT_IMPLEMENTED",
+    "deberta_hard_gate": "NOT_SUPPORTED",
+    "runtime_context_improvement": "NOT_SUPPORTED",
+    "upper_hierarchy_role_hypothesis": "UNTESTED_MISSING_LEVELS",
+    "psl_effect": "NOT_EVALUATED_ZERO_ELIGIBLE",
+    "llm_rca_improvement": "NOT_EVALUATED"
+  },
+  "forward_nli_argmax_across_mask_conditions": {
+    "note": "candidate rows can repeat across masks and are not independent samples",
+    "a3": {
+      "neutral": 93,
+      "entailment": 4,
+      "contradiction": 0
+    },
+    "a4": {
+      "neutral": 92,
+      "entailment": 0,
+      "contradiction": 5,
+      "contradiction_rows_that_are_masked_targets": 5
+    }
+  },
+  "next_preregistered_test": [
+    "preserve A2 as a prior instead of a DeBERTa-vetoed decision",
+    "classify NLI evidence as corroborates, contradicts, or ambiguous",
+    "run A4-H/R/N/O/F factorial and anonymized-label controls",
+    "compare PSL against an equal-effective-threshold non-PSL control",
+    "evaluate global-U and within-P2 rankings separately",
+    "repeat across incidents and seeds before LLM RCA evaluation"
+  ]
+}

@@ -113,6 +113,85 @@ def _fake_runtime(
     return fake_ort, FakeAutoConfig, FakeTokenizer
 
 
+def _fake_runtime_with_pair_lengths() -> tuple[object, type, type]:
+    """Return a tokenizer whose exact, untruncated pair lengths are observable.
+
+    The fake follows DeBERTa's pair convention for this test: four special
+    tokens plus the whitespace-token counts of premise and hypothesis.  When
+    truncation is requested it behaves like a real tokenizer and clips to
+    ``max_length``; this makes a silent-truncation regression observable.
+    """
+
+    fake_ort, fake_config, base_tokenizer = _fake_runtime()
+
+    class LengthAwareTokenizer(base_tokenizer):
+        load_calls: list[tuple[str, dict[str, object]]] = []
+        encode_calls: list[dict[str, object]] = []
+
+        @staticmethod
+        def _pair_length(premise: str, hypothesis: str) -> int:
+            return len(premise.split()) + len(hypothesis.split()) + 4
+
+        def encode(
+            self,
+            premise: str,
+            hypothesis: str,
+            **kwargs: object,
+        ) -> list[int]:
+            self.__class__.encode_calls.append(
+                {"premise": premise, "hypothesis": hypothesis, **kwargs}
+            )
+            length = self._pair_length(premise, hypothesis)
+            if kwargs.get("truncation"):
+                length = min(length, int(kwargs.get("max_length", length)))
+            return list(range(length))
+
+        def __call__(
+            self,
+            premises: list[str],
+            hypotheses: list[str],
+            **kwargs: object,
+        ) -> dict[str, object]:
+            self.__class__.encode_calls.append(
+                {
+                    "premises": premises,
+                    "hypotheses": hypotheses,
+                    **kwargs,
+                }
+            )
+            lengths = [
+                self._pair_length(premise, hypothesis)
+                for premise, hypothesis in zip(premises, hypotheses)
+            ]
+            if kwargs.get("truncation"):
+                maximum = int(kwargs.get("max_length", max(lengths)))
+                lengths = [min(length, maximum) for length in lengths]
+
+            # An unpadded call intentionally returns ragged Python lists, as
+            # Hugging Face tokenizers do without tensor conversion.
+            if not kwargs.get("padding"):
+                rows = [list(range(length)) for length in lengths]
+                return {
+                    "input_ids": rows,
+                    "attention_mask": [[1] * length for length in lengths],
+                    "length": lengths,
+                }
+
+            width = max(lengths)
+            input_ids = np.zeros((len(lengths), width), dtype=np.int32)
+            attention_mask = np.zeros((len(lengths), width), dtype=np.int16)
+            for row_index, length in enumerate(lengths):
+                input_ids[row_index, :length] = np.arange(length, dtype=np.int32)
+                attention_mask[row_index, :length] = 1
+            return {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+                "length": lengths,
+            }
+
+    return fake_ort, fake_config, LengthAwareTokenizer
+
+
 class OnnxDebertaUnitTests(unittest.TestCase):
     def setUp(self) -> None:
         _FakeSession.instances.clear()
@@ -201,6 +280,64 @@ class OnnxDebertaUnitTests(unittest.TestCase):
             backend = OnnxDebertaNLIBackend(model_dir)
             self.assertEqual(backend.batch_size, 1)
             self.assertTrue(backend.research_valid)
+
+    def test_pair_token_lengths_are_exact_untruncated_counts_in_input_order(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            model_dir = self._model_dir(root)
+            fake_ort, fake_config, fake_tokenizer = (
+                _fake_runtime_with_pair_lengths()
+            )
+            pairs = (
+                ("alpha beta", "gamma"),       # 2 + 1 + 4 special = 7
+                ("one", "two three four"),     # 1 + 3 + 4 special = 8
+                ("a b c", "d e f"),            # 3 + 3 + 4 special = 10
+            )
+            with mock.patch.object(
+                onnx_deberta,
+                "_import_runtime",
+                return_value=(fake_ort, fake_config, fake_tokenizer),
+            ):
+                backend = OnnxDebertaNLIBackend(model_dir, max_length=8)
+                self.assertEqual(backend.pair_token_lengths(pairs), (7, 8, 10))
+
+            # The diagnostic must measure the original sequence, not the
+            # sequence after applying the configured inference limit.
+            self.assertTrue(fake_tokenizer.encode_calls)
+            self.assertTrue(
+                any(
+                    call.get("truncation") is False
+                    for call in fake_tokenizer.encode_calls
+                )
+            )
+
+    def test_over_max_length_pair_is_rejected_before_onnx_without_truncation(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            model_dir = self._model_dir(root)
+            fake_ort, fake_config, fake_tokenizer = (
+                _fake_runtime_with_pair_lengths()
+            )
+            with mock.patch.object(
+                onnx_deberta,
+                "_import_runtime",
+                return_value=(fake_ort, fake_config, fake_tokenizer),
+            ):
+                backend = OnnxDebertaNLIBackend(model_dir, max_length=8)
+                with self.assertRaisesRegex(
+                    ValueError,
+                    r"(?i)(max_length|maximum token|token length)",
+                ):
+                    backend.score_pairs(
+                        (
+                            ("a b c", "d e f"),  # exactly 10: reject
+                        )
+                    )
+
+            self.assertEqual(len(_FakeSession.instances), 1)
+            self.assertEqual(
+                _FakeSession.instances[0].feeds,
+                [],
+                "an over-length batch must be rejected before ONNX inference",
+            )
 
     def test_missing_artifact_skips_but_checksum_or_label_error_fails(self) -> None:
         missing = OnnxDebertaNLIBackend("/definitely/not/a/local/model")

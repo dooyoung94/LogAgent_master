@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass
 import hashlib
 import hmac
 import math
+import os
 from pathlib import Path
 import threading
 from typing import Any, Mapping, Sequence
@@ -89,6 +90,10 @@ def _validated_label_indices(id2label: Mapping[Any, Any]) -> Mapping[str, int]:
 def _import_runtime() -> tuple[Any, Any, Any]:
     """Import optional runtime dependencies lazily for honest availability."""
 
+    # ONNX Runtime binaries may otherwise emit process/device telemetry to a
+    # Microsoft collection endpoint.  Relation-recovery experiments are fully
+    # local and disable that channel before importing the runtime.
+    os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
     import onnxruntime as ort  # type: ignore
     from transformers import AutoConfig, AutoTokenizer  # type: ignore
 
@@ -258,11 +263,16 @@ class OnnxDebertaNLIBackend:
             "onnx_path": str(self.onnx_path),
             "revision": self.revision,
             "expected_sha256": self.expected_sha256,
+            "actual_sha256": self._actual_sha256,
             "batch_size": self.batch_size,
             "performance_mode": self.performance_mode,
             "research_valid": self.research_valid,
             "local_files_only": self.local_files_only,
             "providers": self.providers,
+            "max_length": self.max_length,
+            "truncation_policy": "reject_over_budget",
+            "label_to_index": dict(self._label_to_index or {}),
+            "telemetry_disabled": True,
         }
 
     def clear_cache(self) -> None:
@@ -298,6 +308,9 @@ class OnnxDebertaNLIBackend:
             self._require_local_artifacts()
             self._validate_digest()
             ort, auto_config, auto_tokenizer = _import_runtime()
+            disable_telemetry = getattr(ort, "disable_telemetry_events", None)
+            if callable(disable_telemetry):
+                disable_telemetry()
 
             config = auto_config.from_pretrained(
                 str(self.model_dir), local_files_only=True
@@ -382,13 +395,24 @@ class OnnxDebertaNLIBackend:
             premises,
             hypotheses,
             padding=True,
-            truncation=True,
-            max_length=self.max_length,
+            truncation=False,
             return_tensors="np",
         )
         missing = _REQUIRED_INPUTS.difference(encoded)
         if missing:
             raise ValueError(f"tokenizer omitted required ONNX inputs: {sorted(missing)}")
+        attention_mask = np.asarray(encoded["attention_mask"])
+        token_lengths = tuple(int(value) for value in attention_mask.sum(axis=1))
+        over_budget = [
+            (index, length)
+            for index, length in enumerate(token_lengths)
+            if length > self.max_length
+        ]
+        if over_budget:
+            raise ValueError(
+                "NLI input exceeds the frozen token budget; silent truncation is "
+                f"forbidden (max_length={self.max_length}, items={over_budget})"
+            )
         feed = {
             name: np.asarray(encoded[name]).astype(np.int64, copy=False)
             for name in sorted(_REQUIRED_INPUTS)
@@ -412,6 +436,26 @@ class OnnxDebertaNLIBackend:
             )
             for row in probabilities
         ]
+
+    def pair_token_lengths(
+        self, pairs: Sequence[tuple[str, str]]
+    ) -> tuple[int, ...]:
+        """Return untruncated pair lengths for experiment diagnostics."""
+
+        normalized = tuple(self._normal_pair(pair) for pair in pairs)
+        if not normalized:
+            return ()
+        with self._lock:
+            self._load()
+            assert self._tokenizer is not None
+            encoded = self._tokenizer(
+                [pair[0] for pair in normalized],
+                [pair[1] for pair in normalized],
+                padding=False,
+                truncation=False,
+            )
+            input_ids = encoded["input_ids"]
+            return tuple(len(row) for row in input_ids)
 
     def score_pairs(
         self, pairs: Sequence[tuple[str, str]]

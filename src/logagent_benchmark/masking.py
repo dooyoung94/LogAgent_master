@@ -26,6 +26,7 @@ from .graph import (
 
 TargetEdge = tuple[str, str, str]
 EVIDENCE_LEVEL_L1 = "L1_BOUNDARY_HIDDEN"
+EVIDENCE_LEVEL_L2 = "L2_PARENT_DROPPED"
 IID_FRACTIONS = (0.20, 0.40, 0.60)
 
 
@@ -240,6 +241,79 @@ def apply_l1_boundary_hidden(
     return model_bundle, len(child_row_ids)
 
 
+def apply_l2_parent_dropped(
+    model_traces: pd.DataFrame,
+    observed_edges: pd.DataFrame,
+    *,
+    target_edges: Iterable[TargetEdge],
+    seed: int,
+    policy: str,
+    dataset_id: str = "rcaeval",
+    system_id: str = "train-ticket",
+    columns: TraceColumns = RCAEVAL_TRACE_COLUMNS,
+    service_ids_are_canonical: bool | None = None,
+) -> tuple[ModelMaskBundle, int]:
+    """Remove target parent identifiers instead of inserting a mask token.
+
+    L1 is retained for backward reproducibility, but its unmatched opaque
+    parent value is a synthetic orphan signal.  L2 represents a collector that
+    retained the child span while losing its parent identifier.  Root spans
+    and redacted children consequently share the same null surface form.
+    """
+
+    del seed  # Kept in the signature so mask policies share one frozen API.
+    targets = {tuple(map(str, edge)) for edge in target_edges}
+    if not targets:
+        raise ValueError("target_edges must not be empty")
+
+    traces = model_traces.reset_index(drop=True).copy()
+    before = extract_exact_parent_calls(
+        traces,
+        dataset_id=dataset_id,
+        system_id=system_id,
+        columns=columns,
+        service_ids_are_canonical=service_ids_are_canonical,
+    )
+    before_keys = edge_key_set(
+        before.occurrences[["subject", "predicate", "object"]].drop_duplicates()
+    )
+    missing_targets = targets.difference(before_keys)
+    if missing_targets:
+        raise ValueError(
+            "synthetic mask targets must be observable in the model trace partition: "
+            f"{sorted(missing_targets)[:3]}"
+        )
+
+    boundary_rows = before.occurrences.loc[
+        [
+            (row.subject, row.predicate, row.object) in targets
+            for row in before.occurrences.itertuples(index=False)
+        ]
+    ]
+    child_row_ids = sorted(set(boundary_rows["child_row_id"].astype(int)))
+    for row_id in child_row_ids:
+        traces.at[row_id, columns.parent_span_id] = pd.NA
+
+    masked_edges = _drop_target_edges(observed_edges, targets)
+    model_bundle = ModelMaskBundle(traces=traces, observed_edges=masked_edges)
+    after = extract_exact_parent_calls(
+        traces,
+        dataset_id=dataset_id,
+        system_id=system_id,
+        columns=columns,
+        service_ids_are_canonical=service_ids_are_canonical,
+    )
+    after_keys = edge_key_set(
+        after.occurrences[["subject", "predicate", "object"]].drop_duplicates()
+    )
+    leaked = targets.intersection(after_keys)
+    if leaked:
+        raise AssertionError(
+            f"parent-dropped CALLS remain derivable from exact joins: {sorted(leaked)}"
+        )
+    return model_bundle, len(child_row_ids)
+
+
 def assert_mask_is_leakage_free(
     result: StructuralMaskResult,
     *,
@@ -336,6 +410,62 @@ def make_iid_mask(
     return result
 
 
+def make_iid_parent_dropped_mask(
+    graph: SilverGraph,
+    *,
+    fraction: float,
+    seed: int,
+    dataset_id: str = "rcaeval",
+    system_id: str = "train-ticket",
+    columns: TraceColumns | None = None,
+    service_ids_are_canonical: bool | None = None,
+) -> StructuralMaskResult:
+    """IID edge mask using the less marker-like L2 parent-loss policy."""
+
+    active_columns = columns or graph.trace_columns
+    canonical_mode = (
+        graph.service_ids_are_canonical
+        if service_ids_are_canonical is None
+        else service_ids_are_canonical
+    )
+    targets = select_iid_targets(
+        graph.reference_edges,
+        fraction=fraction,
+        seed=seed,
+        observed_edges=graph.observed_edges,
+    )
+    model, redacted = apply_l2_parent_dropped(
+        graph.trace_split.model,
+        graph.observed_edges,
+        target_edges=targets,
+        seed=seed,
+        policy="iid_parent_dropped",
+        dataset_id=dataset_id,
+        system_id=system_id,
+        columns=active_columns,
+        service_ids_are_canonical=canonical_mode,
+    )
+    manifest = EvaluatorMaskManifest(
+        policy="iid_parent_dropped",
+        seed=seed,
+        evidence_level=EVIDENCE_LEVEL_L2,
+        target_edges=targets,
+        target_count=len(targets),
+        redacted_boundary_spans=redacted,
+        fraction=fraction,
+    )
+    result = StructuralMaskResult(model=model, evaluator_manifest=manifest)
+    assert_mask_is_leakage_free(
+        result,
+        reference_trace_ids=graph.trace_split.reference_trace_ids,
+        dataset_id=dataset_id,
+        system_id=system_id,
+        columns=active_columns,
+        service_ids_are_canonical=canonical_mode,
+    )
+    return result
+
+
 def make_component_blackout(
     graph: SilverGraph,
     *,
@@ -372,6 +502,61 @@ def make_component_blackout(
         policy="component_blackout",
         seed=seed,
         evidence_level=EVIDENCE_LEVEL_L1,
+        target_edges=targets,
+        target_count=len(targets),
+        redacted_boundary_spans=redacted,
+        component_id=component_id,
+    )
+    result = StructuralMaskResult(model=model, evaluator_manifest=manifest)
+    assert_mask_is_leakage_free(
+        result,
+        reference_trace_ids=graph.trace_split.reference_trace_ids,
+        dataset_id=dataset_id,
+        system_id=system_id,
+        columns=active_columns,
+        service_ids_are_canonical=canonical_mode,
+    )
+    return result
+
+
+def make_component_parent_dropped_mask(
+    graph: SilverGraph,
+    *,
+    component_id: str,
+    seed: int = 0,
+    dataset_id: str = "rcaeval",
+    system_id: str = "train-ticket",
+    columns: TraceColumns | None = None,
+    service_ids_are_canonical: bool | None = None,
+) -> StructuralMaskResult:
+    """Component blackout using null parent identifiers for target children."""
+
+    active_columns = columns or graph.trace_columns
+    canonical_mode = (
+        graph.service_ids_are_canonical
+        if service_ids_are_canonical is None
+        else service_ids_are_canonical
+    )
+    targets = select_component_targets(
+        graph.reference_edges,
+        component_id=component_id,
+        observed_edges=graph.observed_edges,
+    )
+    model, redacted = apply_l2_parent_dropped(
+        graph.trace_split.model,
+        graph.observed_edges,
+        target_edges=targets,
+        seed=seed,
+        policy="component_parent_dropped",
+        dataset_id=dataset_id,
+        system_id=system_id,
+        columns=active_columns,
+        service_ids_are_canonical=canonical_mode,
+    )
+    manifest = EvaluatorMaskManifest(
+        policy="component_parent_dropped",
+        seed=seed,
+        evidence_level=EVIDENCE_LEVEL_L2,
         target_edges=targets,
         target_count=len(targets),
         redacted_boundary_spans=redacted,
