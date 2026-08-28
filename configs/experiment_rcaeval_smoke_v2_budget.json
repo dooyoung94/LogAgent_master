@@ -1,0 +1,75 @@
+{
+  "schema_version": 2,
+  "experiment_id": "rcaeval-call-recovery-cumulative-smoke-v2-budget",
+  "dataset": {
+    "dataset_id": "rcaeval",
+    "profile": "smoke",
+    "source_revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+    "raw_case": "re2tt_ts-auth-service_cpu_2",
+    "incident_id": "rcaeval_tt_smoke_0001",
+    "system_id": "train-ticket"
+  },
+  "partition": {
+    "unit": "whole_trace",
+    "reference_percent": 40,
+    "hash": "sha256",
+    "assignment": "sha256(revision|incident_id|trace_id) mod 100"
+  },
+  "reference": {
+    "relation": "CALLS",
+    "visibility": "evaluator_only",
+    "semantics": "held-out runtime parent-child support; not causal gold"
+  },
+  "execution_policy": {
+    "profile": "development_budget",
+    "historical_full_config": "configs/experiment_rcaeval_smoke_v2.json",
+    "excluded_masks": ["iid60_l2"],
+    "decision_timing": "post_v2_full_result",
+    "reason": "defer high-cost stress masking until the recovery algorithm passes its lower-cost gates",
+    "claim_limit": "at most 40 percent IID relation masking plus component blackout"
+  },
+  "masks": [
+    {"id": "iid20_l2", "kind": "iid", "ratio": 0.2, "seed": 17, "level": "L2_PARENT_DROPPED"},
+    {"id": "iid40_l2", "kind": "iid", "ratio": 0.4, "seed": 17, "level": "L2_PARENT_DROPPED"},
+    {"id": "component_l2", "kind": "component_blackout", "selector": "highest_total_degree", "seed": 17, "level": "L2_PARENT_DROPPED"}
+  ],
+  "pipeline": {
+    "mode": "cumulative_a2_gated",
+    "stages": ["A0", "A1", "A2", "A3", "A4", "A5"],
+    "controls": ["D0_legacy_reported_separately", "P0_future_a2_psl"],
+    "thresholds": {
+      "a2": 0.6,
+      "forward_entailment": 0.67,
+      "reverse_entailment_ceiling": 0.33,
+      "direction_margin": 0.05,
+      "psl": 0.7
+    },
+    "candidate_contract": "A3=A4=A5=A2 proposals",
+    "deberta_score": "raw entailment with per-candidate forward/reverse gate",
+    "hierarchy_scope": "partial System-Service-Operation runtime context only",
+    "unknown_hierarchy": ["Application", "Instance", "Host", "Deployment"],
+    "psl_scope": "fixed pruning baseline; coupled joint inference not yet implemented"
+  },
+  "leakage_controls": {
+    "model_entities_from_sanitized_model_trace_partition": true,
+    "forbid_reference_in_inference": true,
+    "forbid_mask_manifest_in_inference": true,
+    "forbid_injection_time_in_model_input": true,
+    "forbid_pre_mask_graph_artifact_in_run_tree": true,
+    "forbid_pre_mask_trace_artifact_in_run_tree": true
+  },
+  "optional_backends": {
+    "deberta_model": "cross-encoder/nli-deberta-v3-small",
+    "deberta_revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "deberta_artifact": "onnx/model_quint8_avx2.onnx",
+    "deberta_artifact_sha256": "03c2221313dc0c3eac9cec1f746d1319d33f2c2901fcce1c0f08f4daac9b6dae",
+    "psl_version": "2.4.0",
+    "psl_seed": 7
+  },
+  "notes": [
+    "The historical v2-full config and results remain frozen and include IID60.",
+    "IID60 is excluded from the development default for compute budgeting, not because it is an invalid condition.",
+    "Reintroduce IID60 only in a newly preregistered stress run after lower-cost algorithm gates pass.",
+    "This auth incident remains an ETL/leakage smoke, not primary RCA-path evidence."
+  ]
+}

@@ -56,6 +56,10 @@ _STAGE_ROLES = {
     "A5": "psl_pruning_baseline",
 }
 
+DEFAULT_BUDGET_CONFIG_PATH = Path(
+    "configs/experiment_rcaeval_smoke_v2_budget.json"
+)
+
 
 def _fingerprint(values: Iterable[str]) -> str:
     material = "\n".join(sorted(str(value) for value in values)).encode("utf-8")
@@ -554,7 +558,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path("configs/experiment_rcaeval_smoke_v2.json"),
+        default=DEFAULT_BUDGET_CONFIG_PATH,
     )
     parser.add_argument(
         "--raw-root",

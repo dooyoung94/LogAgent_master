@@ -5,6 +5,16 @@
 데이터 리비전: `afeacb11bcc94dadfd1c8f483ee4377b2b8b614e`  
 결론 상태: **미확정** — 관계복원 smoke 결과이며 RCA 원인·영향 경로 개선은 아직 측정하지 않음
 
+## 후속 기본 실행 정책
+
+이 문서는 IID60을 포함한 `v2-full`의 역사적 결과를 그대로 보존한다. 결과를
+확인한 이후의 알고리즘 개발 실행은 계산 예산을 위해 IID20, IID40,
+component만 포함하는 `v2-budget`을 기본으로 사용한다. 이는 IID60 결과를
+삭제하거나 IID60이 부적절한 평가 조건임을 뜻하지 않는다. budget 실행에서
+허용되는 주장은 최대 40% IID 누락과 component blackout 범위로 제한한다.
+`v2-full`의 정확한 구현 snapshot은 Git commit
+`e5b362f92e3438f28153a7c34e8c24ec9a87d5e5`로 고정한다.
+
 ## 핵심 결론
 
 - A2는 네 마스크 모두에서 숨긴 silver `CALLS`를 후보로 포함하고 채택하여

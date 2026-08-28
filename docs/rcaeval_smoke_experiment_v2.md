@@ -12,6 +12,21 @@ fixed PSL pruning stage?
 This is a topology-recovery smoke test. The held-out graph is silver runtime
 parent/child support, not deployment gold and not a causal RCA graph.
 
+## Execution profiles and compute budget
+
+The historical `v2-full` evidence remains frozen under
+`configs/experiment_rcaeval_smoke_v2.json` and includes IID20, IID40, IID60,
+and component blackout. After observing that the algorithm gates were not yet
+validated, future development runs use
+`configs/experiment_rcaeval_smoke_v2_budget.json` by default. This budget
+profile runs IID20, IID40, and component blackout; it excludes IID60.
+
+This is a post-v2 compute-budget decision, not a claim that IID60 is an invalid
+condition and not a deletion of its observed result. Claims from budget runs
+must be limited to at most 40% IID masking plus component blackout. IID60 may
+return only in a newly preregistered stress run after the lower-cost A2
+contract, leakage, directionality, and non-degradation gates pass.
+
 ## Why v2 exists
 
 The v1 standalone DeBERTa result accepted 1,272 edges, but 1,272 was not the
@@ -102,6 +117,22 @@ python tools/run_rcaeval_smoke_v2.py \
   --require-heavy \
   --output outputs/rcaeval_smoke_v2/run
 ```
+
+The command above uses the budget profile. Exact reproduction of the historical
+full run, including IID60, requires an explicit config:
+
+```bash
+python tools/run_rcaeval_smoke_v2.py \
+  --config configs/experiment_rcaeval_smoke_v2.json \
+  --deberta-model-dir data/models/nli-deberta-v3-small-fa280487 \
+  --enable-psl \
+  --psl-compatibility-override \
+  --require-heavy \
+  --output outputs/rcaeval_smoke_v2/full-reproduction
+```
+
+Reproducing the historical implementation fingerprint additionally requires
+the source snapshot at commit `e5b362f92e3438f28153a7c34e8c24ec9a87d5e5`.
 
 The runner refuses to overwrite an existing directory. The Python 3.12 run
 records the explicit `pslpython==2.4.0` / `JPype1==1.7.1` compatibility
