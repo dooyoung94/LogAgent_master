@@ -1,0 +1,122 @@
+{
+  "schema_version": 2,
+  "experiment_id": "rcaeval-task-a-bounded-abduction-phase1",
+  "dataset": {
+    "dataset_id": "rcaeval",
+    "profile": "smoke",
+    "source_revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+    "raw_case": "re2tt_ts-auth-service_cpu_2",
+    "incident_id": "rcaeval_tt_smoke_0001",
+    "system_id": "train-ticket"
+  },
+  "partition": {
+    "unit": "whole_trace",
+    "reference_percent": 40,
+    "hash": "sha256",
+    "assignment": "sha256(revision|incident_id|trace_id) mod 100"
+  },
+  "reference": {
+    "relation": "CALLS",
+    "visibility": "evaluator_only",
+    "semantics": "held-out runtime parent-child support; not causal gold"
+  },
+  "execution_policy": {
+    "profile": "task_a_phase1",
+    "task_b_enabled": false,
+    "included_masks": ["iid20_l2", "iid40_l2"],
+    "excluded_masks": ["iid60_l2", "component_l2"],
+    "reason": "first freeze bounded candidate generation and recall before verifier tuning",
+    "claim_limit": "one RCAEval incident, one seed, IID relation masking up to 40 percent"
+  },
+  "masks": [
+    {
+      "id": "iid20_l2",
+      "kind": "iid",
+      "ratio": 0.2,
+      "seed": 17,
+      "level": "L2_PARENT_DROPPED"
+    },
+    {
+      "id": "iid40_l2",
+      "kind": "iid",
+      "ratio": 0.4,
+      "seed": 17,
+      "level": "L2_PARENT_DROPPED"
+    }
+  ],
+  "pipeline": {
+    "mode": "cumulative_a2_gated",
+    "task": "A_relation_recovery",
+    "phase": "A0_A2_candidate_readiness",
+    "active_stages": ["A0", "A1", "A2"],
+    "deferred_stages": ["A3", "A4", "A5"],
+    "relation_scope": ["CALLS"],
+    "include_null_parent": true,
+    "thresholds": {
+      "a2": 0.6,
+      "forward_entailment": 0.67,
+      "reverse_entailment_ceiling": 0.33,
+      "direction_margin": 0.05,
+      "psl": 0.7
+    },
+    "candidate_budget": {
+      "applies_to": "abductive proposals only",
+      "preserve_direct_evidence": true,
+      "max_abductive_proposals": 32,
+      "max_per_subject": 8,
+      "max_per_object": 8,
+      "min_supporting_traces": 1,
+      "min_boundary_count": 1,
+      "ranking": [
+        "abduction_score_desc",
+        "supporting_trace_count_desc",
+        "boundary_count_desc",
+        "candidate_key_asc"
+      ]
+    },
+    "candidate_contract": "A2 is bounded and label-blind; A3-A5 are deferred until D2 passes",
+    "unknown_hierarchy": ["Application", "Instance", "Host", "Deployment"]
+  },
+  "evaluation": {
+    "primary_metrics": [
+      "candidate_recall",
+      "masked_recall",
+      "silver_precision_lower_bound",
+      "candidate_compression_ratio"
+    ],
+    "decision_gate": {
+      "id": "D2_BOUNDED_CANDIDATE_RECALL",
+      "candidate_recall_each_mask_min": 0.9,
+      "abductive_proposal_count_max": 32,
+      "leakage_checks_all_pass": true
+    },
+    "not_claimed": [
+      "DeBERTa improvement",
+      "PSL improvement",
+      "causal path recovery",
+      "LLM RCA improvement"
+    ]
+  },
+  "leakage_controls": {
+    "model_entities_from_sanitized_model_trace_partition": true,
+    "forbid_reference_in_inference": true,
+    "forbid_mask_manifest_in_inference": true,
+    "forbid_injection_time_in_model_input": true,
+    "forbid_pre_mask_graph_artifact_in_run_tree": true,
+    "forbid_pre_mask_trace_artifact_in_run_tree": true
+  },
+  "optional_backends": {
+    "deberta_model": "cross-encoder/nli-deberta-v3-small",
+    "deberta_revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "deberta_artifact": "onnx/model_quint8_avx2.onnx",
+    "deberta_artifact_sha256": "03c2221313dc0c3eac9cec1f746d1319d33f2c2901fcce1c0f08f4daac9b6dae",
+    "psl_version": "2.4.0",
+    "psl_seed": 7
+  },
+  "notes": [
+    "This phase intentionally executes only A0, A1, and bounded A2.",
+    "The 32-edge cap is above the historical IID40 proposal count of 26, so it prevents future explosion without retrospectively truncating that smoke result.",
+    "Direct model-visible evidence is preserved and does not consume the abductive budget.",
+    "After D2 passes, expand seeds and incidents before starting A3-A5."
+  ]
+}
