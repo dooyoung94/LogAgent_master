@@ -11,6 +11,8 @@ on:
       - "src/logagent_benchmark/phase3_nli.py"
       - "src/logagent_benchmark/phase3_policy.py"
       - "src/logagent_benchmark/task_a_phase3.py"
+      - "src/logagent_benchmark/cli_task_a.py"
+      - "src/logagent_benchmark/runtime_context.py"
       - "tools/prepare_deberta_model.py"
       - "tools/run_task_a_phase3.py"
       - "tests/test_task_a_phase3.py"
@@ -66,13 +68,89 @@ jobs:
             --config configs/experiment_task_a_rcaeval_phase2.json \
             --dest data/raw/rcaeval/phase2
 
-      - name: Reproduce frozen A2 60-cell grid
+      - name: Restore A2 output with materialized runtime context
+        id: phase2-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: outputs/task_a/phase2
+          key: >-
+            task-a-phase2-a3-context-${{
+              hashFiles(
+                'configs/experiment_task_a_rcaeval.json',
+                'configs/experiment_task_a_rcaeval_phase2.json',
+                'src/logagent_benchmark/cli_task_a.py',
+                'src/logagent_benchmark/cli_v2.py',
+                'src/logagent_benchmark/graph.py',
+                'src/logagent_benchmark/masking.py',
+                'src/logagent_benchmark/metrics.py',
+                'src/logagent_benchmark/rcaeval.py',
+                'src/logagent_benchmark/recovery.py',
+                'src/logagent_benchmark/runtime_context.py',
+                'src/logagent_benchmark/task_a.py',
+                'src/logagent_benchmark/task_a_phase2.py',
+                'tools/run_task_a.py',
+                'tools/run_task_a_phase2.py'
+              )
+            }}
+
+      - name: Reproduce frozen A2 60-cell grid with runtime context
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
         run: |
+          LOGAGENT_TASK_A_MATERIALIZE_RUNTIME_CONTEXT=1 \
           python tools/run_task_a_phase2.py \
             --config configs/experiment_task_a_rcaeval_phase2.json \
             --raw-root data/raw/rcaeval/phase2 \
             --output outputs/task_a/phase2 \
             --max-workers 2
+
+      - name: Verify A2 handoff artifacts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path("outputs/task_a/phase2")
+          summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
+          if not summary["gate"]["passed"]:
+              raise SystemExit("Phase-2 D3 gate did not pass")
+          paths = sorted(
+              root.glob(
+                  "runs/*/seed-*/masks/*/model_input/runtime_pair_context.parquet"
+              )
+          )
+          if len(paths) != 60:
+              raise SystemExit(f"expected 60 runtime contexts, found {len(paths)}")
+          required = {
+              "subject",
+              "predicate",
+              "object",
+              "subject_label",
+              "object_label",
+              "contextual_addendum",
+              "provenance",
+          }
+          empty = []
+          invalid = []
+          for path in paths:
+              frame = pd.read_parquet(path)
+              if frame.empty:
+                  empty.append(str(path))
+              if not required.issubset(frame.columns):
+                  invalid.append(str(path))
+          if empty or invalid:
+              raise SystemExit(
+                  f"invalid A3 handoff: empty={len(empty)} invalid_schema={len(invalid)}"
+              )
+          print(f"A2_HANDOFF_READY contexts={len(paths)}")
+          PY
+
+      - name: Save A2 output with materialized runtime context
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: outputs/task_a/phase2
+          key: ${{ steps.phase2-cache.outputs.cache-primary-key }}
 
       - name: Cache frozen DeBERTa model
         uses: actions/cache@v4
