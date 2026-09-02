@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcaeval-task-a-phase3-r1-structured-evidence",
+  "source_contract": {
+    "dataset": "RCAEval RE2 TrainTicket",
+    "relation": "CALLS",
+    "a2_candidate_rows": 1250,
+    "required_cells": 60,
+    "nli_features_forbidden": true,
+    "evaluator_labels_forbidden_during_scoring": true
+  },
+  "split_contract": {
+    "calibration_incidents": 2,
+    "heldout_incidents": 4,
+    "calibration_cells": 20,
+    "heldout_cells": 40
+  },
+  "policy_search": {
+    "retention_fractions": [0.75, 0.8, 0.85, 0.9, 0.95],
+    "minimum_keep": [8, 10, 12, 14],
+    "structure_weights": [0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1.0],
+    "feature_weight_pairs": [[1.0, 0.0], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75]],
+    "selection_order": [
+      "minimum_selected_count_mean",
+      "maximum_silver_precision_lower_bound_macro",
+      "maximum_mrr_macro",
+      "minimum_structure_weight"
+    ]
+  },
+  "gate": {
+    "recall_macro_min": 0.95,
+    "recall_pooled_min": 0.95,
+    "recall_each_cell_min": 0.9,
+    "selected_count_ratio_max": 0.95,
+    "matched_budget_recall_tolerance": 0.0,
+    "matched_budget_p_lb_delta_min": 0.0,
+    "matched_budget_mrr_delta_min": 0.0,
+    "additive_gain_min": 1e-12
+  },
+  "claim_limit": "Structured CALLS candidate shortlisting only; no causal or downstream RCA claim."
+}
