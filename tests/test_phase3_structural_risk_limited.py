@@ -60,9 +60,29 @@ def policy(**overrides):
 
 def test_drops_only_candidates_dominated_in_both_rankings():
     records = [
-        candidate("s", "true", 1, a2_score=0.95, structural=0.9, target=True, silver=True),
-        candidate("s", "dominated", 2, a2_score=0.80, structural=0.1),
-        candidate("s", "tradeoff", 3, a2_score=0.70, structural=1.0),
+        candidate(
+            "s",
+            "true",
+            1,
+            a2_score=0.95,
+            structural=0.9,
+            target=True,
+            silver=True,
+        ),
+        candidate(
+            "s",
+            "dominated",
+            2,
+            a2_score=0.80,
+            structural=0.1,
+        ),
+        candidate(
+            "s",
+            "tradeoff",
+            3,
+            a2_score=0.70,
+            structural=1.0,
+        ),
     ]
     selected, scored, diagnostics = apply_policy(records, policy())
     selected_objects = {row["object"] for row in selected}
@@ -70,13 +90,25 @@ def test_drops_only_candidates_dominated_in_both_rankings():
     assert "true" in selected_objects
     assert "tradeoff" in selected_objects
     assert diagnostics["dropped_count"] == 1
-    dominated = next(row for row in scored if row["object"] == "dominated")
-    assert dominated["drop_reason_safe"] == "PARETO_DOMINATED_LOW_RISK"
+    dominated = next(
+        row for row in scored if row["object"] == "dominated"
+    )
+    assert (
+        dominated["drop_reason_safe"]
+        == "PARETO_DOMINATED_LOW_RISK"
+    )
 
 
 def test_direct_evidence_and_per_query_floor_are_protected():
     records = [
-        candidate("s", "direct", 1, a2_score=1.0, structural=0.0, direct=True),
+        candidate(
+            "s",
+            "direct",
+            1,
+            a2_score=1.0,
+            structural=0.0,
+            direct=True,
+        ),
         candidate("s", "a", 2, a2_score=0.9, structural=0.9),
         candidate("s", "b", 3, a2_score=0.8, structural=0.8),
         candidate("s", "c", 4, a2_score=0.7, structural=0.1),
@@ -92,41 +124,86 @@ def test_direct_evidence_and_per_query_floor_are_protected():
 
 def test_exact_a2_control_matches_requested_candidate_count():
     records = [
-        candidate("s", f"o{index}", index, a2_score=1.0 - index * 0.1, structural=0.5)
+        candidate(
+            "s",
+            f"o{index}",
+            index,
+            a2_score=1.0 - index * 0.1,
+            structural=0.5,
+        )
         for index in range(1, 6)
     ]
     selected = exact_a2_budget(records, 3)
     assert len(selected) == 3
-    assert [row["object"] for row in selected] == ["o1", "o2", "o3"]
+    assert [row["object"] for row in selected] == [
+        "o1",
+        "o2",
+        "o3",
+    ]
+
+
+def hard_negative_records():
+    """A2 drops a low-ranked true edge; structure drops a false middle edge."""
+
+    return [
+        candidate(
+            "s",
+            "true-top",
+            1,
+            a2_score=0.99,
+            structural=0.9,
+            target=True,
+            silver=True,
+        ),
+        candidate(
+            "s",
+            "false-middle",
+            2,
+            a2_score=0.98,
+            structural=0.1,
+        ),
+        candidate(
+            "s",
+            "false-bottom",
+            3,
+            a2_score=0.90,
+            structural=0.0,
+        ),
+        candidate(
+            "s",
+            "true-low-a2",
+            4,
+            a2_score=0.80,
+            structural=1.0,
+            target=True,
+            silver=True,
+        ),
+    ]
 
 
 def test_risk_limited_selection_beats_exact_budget_a2_on_synthetic_cell():
-    records = [
-        candidate("s", "false-top", 1, a2_score=0.99, structural=0.1),
-        candidate("s", "true-one", 2, a2_score=0.98, structural=1.0, target=True, silver=True),
-        candidate("s", "true-two", 3, a2_score=0.97, structural=0.9, target=True, silver=True),
-        candidate("s", "false-bottom", 4, a2_score=0.80, structural=0.0),
-    ]
-    proposed, _scored, _diagnostics = apply_policy(records, policy())
+    records = hard_negative_records()
+    proposed, _scored, _diagnostics = apply_policy(
+        records,
+        policy(max_drop_fraction=0.25, query_keep_fraction=0.75),
+    )
     control = exact_a2_budget(records, len(proposed))
     proposed_metric = evaluate_cell(proposed, records)
     control_metric = evaluate_cell(control, records)
-    assert proposed_metric["recall"] >= control_metric["recall"]
-    assert proposed_metric["silver_precision_lower_bound"] >= control_metric[
-        "silver_precision_lower_bound"
-    ]
+    assert proposed_metric["recall"] > control_metric["recall"]
+    assert (
+        proposed_metric["silver_precision_lower_bound"]
+        > control_metric["silver_precision_lower_bound"]
+    )
 
 
 def test_calibration_uses_worst_cell_recall_before_aggressive_compression():
-    records = [
-        candidate("s", "t1", 1, a2_score=0.99, structural=1.0, target=True, silver=True),
-        candidate("s", "t2", 2, a2_score=0.98, structural=0.9, target=True, silver=True),
-        candidate("s", "f1", 3, a2_score=0.90, structural=0.1),
-        candidate("s", "f2", 4, a2_score=0.80, structural=0.0),
-    ]
     cells = {}
     for seed in (11, 17):
-        cell_records = [{**row, "seed": seed} for row in records]
+        cell_records = [
+            {**row, "seed": seed}
+            for row in hard_negative_records()
+        ]
         cells[("case-1", seed, "iid40")] = cell_records
     config = {
         "policy_search": {
@@ -152,3 +229,6 @@ def test_calibration_uses_worst_cell_recall_before_aggressive_compression():
     assert any(row["feasible"] for row in grid)
     assert chosen.max_drop_fraction in {0.25, 0.5}
     assert sum(row["selected"] for row in grid) == 1
+    selected = next(row for row in grid if row["selected"])
+    assert selected["recall_min"] == 1.0
+    assert selected["matched_budget_additive_gain"] is True
