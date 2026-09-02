@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "report_id": "rcaeval-task-a-bounded-abduction-phase1-results",
+  "executed_at_utc": "2026-09-02T00:10:06Z",
+  "status": "PASS",
+  "decision_gate": "D2_BOUNDED_CANDIDATE_RECALL",
+  "dataset": {
+    "dataset_id": "rcaeval",
+    "system_id": "train-ticket",
+    "case_id": "re2tt_ts-auth-service_cpu_2",
+    "revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+    "files": {
+      "cases.parquet": {
+        "bytes": 29500,
+        "rows": 735,
+        "sha256": "c49a288920dbba2e8e724679a14636d5c7eb2b45426bba14007ef79a6c0ab1bb"
+      },
+      "logs.parquet": {
+        "bytes": 3351283,
+        "rows": 271919,
+        "columns": 3,
+        "sha256": "0cc2ed5ff13a20cf776a42d9d4c3914981afe025fbaa69109ac652d9c7502537"
+      },
+      "metrics.parquet": {
+        "bytes": 933362,
+        "rows": 1441,
+        "columns": 368,
+        "sha256": "16597725c18258ce0a3bdedc1833fb52ad6638fdc5068e944dce23c1bbde6d93"
+      },
+      "traces.parquet": {
+        "bytes": 20050343,
+        "rows": 838936,
+        "columns": 11,
+        "sha256": "3d704979b684c5450a3ddcd48bb91a71d07c485edc878a2969b04ff152b5857c"
+      }
+    }
+  },
+  "split": {
+    "unit": "whole_trace",
+    "reference_traces": 2539,
+    "model_traces": 3936,
+    "trace_overlap": 0,
+    "reference_edges": 55,
+    "reference_semantics": "evaluator-only held-out runtime CALLS; not causal gold"
+  },
+  "contract": {
+    "relation": "CALLS",
+    "active_stages": ["A0", "A1", "A2"],
+    "deferred_stages": ["A3", "A4", "A5"],
+    "masks": ["iid20_l2", "iid40_l2"],
+    "seed": 17,
+    "a2_threshold": 0.6,
+    "candidate_budget": {
+      "max_abductive_proposals": 32,
+      "max_per_subject": 8,
+      "max_per_object": 8,
+      "min_supporting_traces": 1,
+      "min_boundary_count": 1
+    }
+  },
+  "results": [
+    {
+      "mask_id": "iid20_l2",
+      "target_edges": 10,
+      "redacted_boundary_spans": 9408,
+      "typed_universe": 657,
+      "a2_proposals": 13,
+      "matched_target_edges": 10,
+      "candidate_recall": 1.0,
+      "masked_recall": 1.0,
+      "mrr_within_a2": 1.0,
+      "hits_at_1_within_a2": 1.0,
+      "silver_precision_lower_bound": 0.7692307692307693,
+      "unverified_edges": 3,
+      "compression_ratio": 0.9802130898021308,
+      "budget_saturated": false,
+      "dropped_by_budget": 0,
+      "leakage_checks_all_pass": true,
+      "gate": "PASS"
+    },
+    {
+      "mask_id": "iid40_l2",
+      "target_edges": 21,
+      "redacted_boundary_spans": 21906,
+      "typed_universe": 668,
+      "a2_proposals": 26,
+      "matched_target_edges": 21,
+      "candidate_recall": 1.0,
+      "masked_recall": 1.0,
+      "mrr_within_a2": 1.0,
+      "hits_at_1_within_a2": 1.0,
+      "silver_precision_lower_bound": 0.8076923076923077,
+      "unverified_edges": 5,
+      "compression_ratio": 0.9610778443113772,
+      "budget_saturated": false,
+      "dropped_by_budget": 0,
+      "leakage_checks_all_pass": true,
+      "gate": "PASS"
+    }
+  ],
+  "validation": {
+    "python": "3.12.14",
+    "tests_passed": 88,
+    "tests_skipped": 4,
+    "subtests_passed": 10,
+    "validated_head_sha": "8de904664beb56ae65efefeb6c6af866f986ec28",
+    "merged_commit_sha": "82693fcfa815496e495519f5fd86dd6d5a0fc7bd",
+    "github_actions_run_id": 33574023760,
+    "implementation_sha256": "e7caaf57fa7310cae09c425796dd94e38924cc3413143c34b08ef388d160531a",
+    "config_sha256": "12241046c5a5b464d00b5683418a62424eec756e6b72ad4e3a57d70d77d8f036",
+    "artifact_id": 9826002986,
+    "artifact_zip_sha256": "ad7d1b7a05b36d2ed7f8e79eaca485ffeee9372ff344e88c57f19659d35f92b1"
+  },
+  "claim_scope": {
+    "supported": "One RCAEval TrainTicket incident and one seed under IID20/IID40 L2 masking retained every masked silver CALLS edge within 13/26 bounded proposals.",
+    "not_supported": [
+      "cross-incident or cross-system generalization",
+      "causal relation recovery",
+      "DeBERTa or PSL improvement",
+      "RCA or LLM improvement"
+    ],
+    "ci_status": "NOT_ESTIMABLE_SINGLE_INCIDENT_SEED_NESTED_MASKS"
+  },
+  "next_gate": "Expand IID20/IID40 to at least five seeds and multiple TrainTicket incidents before A3-A5."
+}

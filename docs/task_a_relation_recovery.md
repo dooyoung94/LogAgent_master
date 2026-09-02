@@ -89,9 +89,26 @@ A3~A5를 의도적으로 실행하지 않으므로 DeBERTa 모델 경로, PSL �
 실제 false가 아니라 unverified일 수 있으므로, 이를 단독 hard gate로 사용하지
 않는다.
 
+## 실행 결과 — 2026-09-02
+
+1차 계약을 실제 고정 RCAEval 데이터로 실행했고 **D0, D1, D2를 모두 통과**했다.
+
+| Mask | 숨긴 관계 | 전체 후보 U | A2 후보 | 정답 포함 | Recall | P-LB | 압축률 | Gate |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| IID20 | 10 | 657 | 13 | 10 | **1.000** | 0.7692 | 98.02% | **PASS** |
+| IID40 | 21 | 668 | 26 | 21 | **1.000** | 0.8077 | 96.11% | **PASS** |
+
+- 후보 32개 상한과 source/target별 8개 상한을 모두 지켰다.
+- 두 조건 모두 후보 예산이 포화되지 않았고 예산 때문에 제거된 후보는 0개였다.
+- Leakage check는 모두 통과했다.
+- 전체 테스트는 88 passed, 4 skipped였다.
+- 결과 요약기의 구조화 지표 parsing 결함을 수정하고 회귀 테스트를 추가한 뒤 전체 워크플로를 재실행했다.
+
+상세 수치·checksum·실행 SHA는 [`reports/task_a_phase1_results.md`](../reports/task_a_phase1_results.md)와 [`reports/task_a_phase1_results.json`](../reports/task_a_phase1_results.json)에 기록한다.
+
 ## 다음 단계
 
-D2가 통과하면 같은 20%·40% 마스킹에서 seed를 최소 5개로 늘리고 incident를
+D2가 통과했으므로 같은 20%·40% 마스킹에서 seed를 최소 5개로 늘리고 incident를
 확장한다. 그 후 DeBERTa는 A2를 제거하는 hard veto가 아니라
 `corroborates / contradicts / ambiguous` 보조 증거로 재설계하고, 마지막에 PSL
 및 calibration을 결합한다. Task B의 LLM RCA 비교는 Task A 관계복원과 oracle
