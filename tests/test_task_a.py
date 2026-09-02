@@ -1,5 +1,6 @@
 import unittest
 
+from logagent_benchmark.cli_task_a import _task_a_gate
 from logagent_benchmark.recovery import Candidate, TemporalContainmentDetail
 from logagent_benchmark.task_a import TaskAConfig, select_abductive_proposals
 
@@ -86,6 +87,41 @@ class TaskACandidateBudgetTests(unittest.TestCase):
             TaskAConfig(max_abductive_proposals=0)
         with self.assertRaises(ValueError):
             TaskAConfig(max_per_subject=True)
+
+
+class TaskAGateTests(unittest.TestCase):
+    def _mask_summary(self, recall: float, proposal_count: int = 13):
+        return {
+            "evaluation": {
+                "A2": {
+                    "candidate_recall": {
+                        "candidate_count": proposal_count,
+                        "matched_target_count": 10,
+                        "target_count": 10,
+                        "recall": {"value": recall, "reason": None},
+                    }
+                }
+            },
+            "diagnostics": {
+                "a2_abductive_proposal_count": proposal_count,
+            },
+            "leakage_checks": [
+                {"check_id": "entities", "passed": True},
+                {"check_id": "labels", "passed": True},
+                {"check_id": "artifacts", "passed": True},
+            ],
+        }
+
+    def test_gate_reads_structured_candidate_recall(self):
+        gate = _task_a_gate(self._mask_summary(1.0), max_proposals=32)
+        self.assertEqual(gate["status"], "PASS")
+        self.assertTrue(gate["passed"])
+        self.assertEqual(gate["observed"]["candidate_recall"], 1.0)
+
+    def test_gate_fails_when_structured_recall_is_below_target(self):
+        gate = _task_a_gate(self._mask_summary(0.8), max_proposals=32)
+        self.assertEqual(gate["status"], "FAIL")
+        self.assertFalse(gate["passed"])
 
 
 if __name__ == "__main__":
