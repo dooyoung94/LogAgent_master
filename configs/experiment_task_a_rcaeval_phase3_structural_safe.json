@@ -22,13 +22,14 @@
   },
   "structural_evidence": {
     "include_null_parent": true,
-    "reverse_probe_outside_candidate_set": true,
+    "reverse_probe_outside_candidate_set": false,
+    "reverse_probe_status": "DEFERRED_BEFORE_CONFIRMATORY_RUN",
     "source": "sanitized model traces only",
     "features": [
       "child_parent_duration_tightness",
       "nearest_alternative_width_margin",
       "container_service_uniqueness",
-      "forward_reverse_boundary_asymmetry",
+      "forward_reverse_boundary_asymmetry_within_a2_candidates",
       "parent_span_diversity",
       "trace_independence",
       "operation_token_overlap",
@@ -90,5 +91,5 @@
     "matched_budget_is_per_cell_exact": true,
     "purpose": "Separate structural evidence utility from variable shortlist-size utility."
   },
-  "claim_limit": "Development-only runtime CALLS candidate shortlisting. A fresh independent incident set is required before any confirmatory A3 claim."
+  "claim_limit": "Development-only runtime CALLS candidate shortlisting. A fresh independent incident set and reverse-outside-candidate probe are required before any confirmatory A3 claim."
 }
