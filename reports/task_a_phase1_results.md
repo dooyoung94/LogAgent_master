@@ -97,10 +97,11 @@ A3~A5로 바로 넘어가지 않는다. 다음 Task A Phase 2는 동일한 20%·
 
 - Validated PR head: `8de904664beb56ae65efefeb6c6af866f986ec28`
 - Merged commit: `82693fcfa815496e495519f5fd86dd6d5a0fc7bd`
-- GitHub Actions validation run: `33574023760`
+- PR validation run: `33574023760`
+- Merged-branch validation run: `33574304305`
 - Implementation SHA-256: `e7caaf57fa7310cae09c425796dd94e38924cc3413143c34b08ef388d160531a`
 - Config SHA-256: `12241046c5a5b464d00b5683418a62424eec756e6b72ad4e3a57d70d77d8f036`
-- Artifact ID: `9826002986`
-- Artifact ZIP SHA-256: `ad7d1b7a05b36d2ed7f8e79eaca485ffeee9372ff344e88c57f19659d35f92b1`
+- Canonical artifact ID: `9826092462`
+- Canonical artifact ZIP SHA-256: `fa6717fc75ea00ce68efc69cb2726287f94956873ce60c32944caacf6b8ab117`
 
 Raw RCAEval 데이터와 전체 Parquet 출력은 Git에 커밋하지 않는다. 저장소에는 설정, 코드, compact 결과와 checksum만 유지한다.
