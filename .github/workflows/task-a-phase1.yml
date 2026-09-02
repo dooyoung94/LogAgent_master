@@ -1,0 +1,94 @@
+name: Task A Phase 1
+
+on:
+  push:
+    branches:
+      - research/reference-matrix-readiness
+    paths:
+      - ".github/workflows/task-a-phase1.yml"
+      - "configs/experiment_task_a_rcaeval.json"
+      - "src/logagent_benchmark/**"
+      - "tools/run_task_a.py"
+      - "tools/datasets.py"
+      - "tests/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  task-a:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+          python -m pip install "huggingface-hub>=0.26,<1"
+
+      - name: Audit dataset registry
+        run: |
+          python tools/datasets.py audit
+          python tools/datasets.py plan rcaeval --profile smoke
+
+      - name: Acquire frozen RCAEval smoke data
+        run: |
+          python tools/datasets.py fetch rcaeval \
+            --profile smoke \
+            --dest data/raw \
+            --accept-license \
+            --yes
+
+      - name: Verify checksums and Parquet schemas
+        run: |
+          python tools/datasets.py verify rcaeval \
+            --profile smoke \
+            --path data/raw/rcaeval/smoke \
+            --parse-parquet
+
+      - name: Run unit tests
+        run: python -m pytest -q
+
+      - name: Run bounded Task A IID20 and IID40
+        run: |
+          python tools/run_task_a.py \
+            --raw-root data/raw/rcaeval/smoke \
+            --output outputs/task_a/phase1
+
+      - name: Print Task A gate summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("outputs/task_a/phase1/summary.json")
+          if not path.exists():
+              raise SystemExit("Task A summary was not created")
+
+          summary = json.loads(path.read_text(encoding="utf-8"))
+          print("TASK_A_SUMMARY_JSON_START")
+          print(json.dumps(summary, indent=2, ensure_ascii=False, sort_keys=True))
+          print("TASK_A_SUMMARY_JSON_END")
+          PY
+
+      - name: Upload Task A artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-a-phase1-${{ github.sha }}
+          path: outputs/task_a/phase1
+          if-no-files-found: warn
+          retention-days: 30
