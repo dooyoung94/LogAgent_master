@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -14,6 +15,23 @@ from .task_a import TaskAConfig, run_task_a_candidate_suite
 
 DEFAULT_TASK_A_CONFIG_PATH = Path("configs/experiment_task_a_rcaeval.json")
 _BASE_LOAD_CONFIG = cli_v2._load_config
+_RUNTIME_CONTEXT_ENV = "LOGAGENT_TASK_A_MATERIALIZE_RUNTIME_CONTEXT"
+
+
+def _materialize_runtime_context_requested() -> bool:
+    """Return whether model-visible A3 context should be persisted.
+
+    The default remains the lightweight A0-A2 contract.  Phase 3 may opt in so
+    that ``cli_v2`` computes and writes pair contexts while A3-A5 themselves
+    stay deferred.  This changes only model artifacts, not candidate selection.
+    """
+
+    return os.getenv(_RUNTIME_CONTEXT_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "y",
+    }
 
 
 def _load_task_a_config(path: Path) -> dict[str, Any]:
@@ -146,6 +164,7 @@ def _rewrite_summary(output: Path, config_path: Path) -> None:
             "observed CALLS graph",
             "typed Service entities",
         ],
+        "runtime_pair_context_materialized": _materialize_runtime_context_requested(),
         "evaluator_only": [
             "masked target edges",
             "reference graph",
@@ -231,7 +250,8 @@ def run(args: argparse.Namespace) -> Path:
     cli_v2._cumulative_config = _task_a_config
     cli_v2.run_cumulative_suite = run_task_a_candidate_suite
     cli_v2._implementation_fingerprint = _task_a_implementation_fingerprint
-    cli_v2.build_runtime_pair_contexts = lambda *_args, **_kwargs: {}
+    if not _materialize_runtime_context_requested():
+        cli_v2.build_runtime_pair_contexts = lambda *_args, **_kwargs: {}
     try:
         output = cli_v2.run(args)
     finally:
