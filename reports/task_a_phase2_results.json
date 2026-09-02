@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "report_id": "rcaeval-task-a-phase2-multicase-multiseed-results",
+  "executed_at_utc": "2026-09-02T01:18:30Z",
+  "status": "PASS",
+  "gate_id": "D3_MULTICASE_MULTISEED_GENERALIZATION",
+  "scope": {
+    "dataset": "RCAEval RE2-TT",
+    "relation": "CALLS",
+    "incidents": 6,
+    "seeds": [11, 17, 23, 31, 47],
+    "mask_ratios": [0.2, 0.4],
+    "runs": 30,
+    "cells": 60,
+    "active_stages": ["A0", "A1", "A2"],
+    "deferred_stages": ["A3", "A4", "A5", "RCA", "LLM"]
+  },
+  "candidate_budget": {
+    "max_abductive_proposals": 32,
+    "max_per_subject": 8,
+    "max_per_object": 8,
+    "min_supporting_traces": 1,
+    "min_boundary_count": 1,
+    "ranking": [
+      "abduction_score_desc",
+      "supporting_trace_count_desc",
+      "boundary_count_desc",
+      "candidate_key_asc"
+    ]
+  },
+  "selected_cases": [
+    {
+      "fault": "cpu",
+      "case": "re2tt_ts-auth-service_cpu_2",
+      "root_cause_service": "ts-auth-service",
+      "trace_rows": 838936
+    },
+    {
+      "fault": "mem",
+      "case": "re2tt_ts-travel-service_mem_3",
+      "root_cause_service": "ts-travel-service",
+      "trace_rows": 587772
+    },
+    {
+      "fault": "disk",
+      "case": "re2tt_ts-order-service_disk_3",
+      "root_cause_service": "ts-order-service",
+      "trace_rows": 126429
+    },
+    {
+      "fault": "delay",
+      "case": "re2tt_ts-auth-service_delay_3",
+      "root_cause_service": "ts-auth-service",
+      "trace_rows": 671979
+    },
+    {
+      "fault": "loss",
+      "case": "re2tt_ts-train-service_loss_3",
+      "root_cause_service": "ts-train-service",
+      "trace_rows": 1042622
+    },
+    {
+      "fault": "socket",
+      "case": "re2tt_ts-travel-service_socket_3",
+      "root_cause_service": "ts-travel-service",
+      "trace_rows": 783847
+    }
+  ],
+  "overall": {
+    "ready_runs": 30,
+    "completed_cells": 60,
+    "expected_cells": 60,
+    "candidate_recall_macro": 1.0,
+    "candidate_recall_min": 1.0,
+    "candidate_recall_max": 1.0,
+    "masked_recall_macro": 1.0,
+    "mrr_within_a2_macro": 0.9871645021645021,
+    "mrr_within_a2_min": 0.85,
+    "proposal_count_mean": 20.833333333333332,
+    "proposal_count_median": 21.0,
+    "proposal_count_max": 32,
+    "compression_ratio_macro": 0.9669716969826412,
+    "compression_ratio_min": 0.952023988005997,
+    "silver_precision_lower_bound_macro": 0.7065635758313652,
+    "silver_precision_lower_bound_min": 0.4230769230769231,
+    "budget_saturation_count": 12,
+    "budget_saturation_rate": 0.2,
+    "budget_drop_total": 117,
+    "leakage_checks_all_pass": true
+  },
+  "by_mask": {
+    "iid20": {
+      "cells": 30,
+      "candidate_recall_macro": 1.0,
+      "candidate_recall_min": 1.0,
+      "mrr_macro": 0.9921212121212121,
+      "mrr_min": 0.9090909090909091,
+      "proposal_count_mean": 14.766666666666667,
+      "proposal_count_max": 26,
+      "silver_precision_lower_bound_macro": 0.6966160614984144,
+      "budget_saturation_count": 0,
+      "budget_drop_total": 0
+    },
+    "iid40": {
+      "cells": 30,
+      "candidate_recall_macro": 1.0,
+      "candidate_recall_min": 1.0,
+      "mrr_macro": 0.9822077922077922,
+      "mrr_min": 0.85,
+      "proposal_count_mean": 26.9,
+      "proposal_count_max": 32,
+      "silver_precision_lower_bound_macro": 0.7165110901643159,
+      "budget_saturation_count": 12,
+      "budget_saturation_rate_within_mask": 0.4,
+      "budget_drop_total": 117
+    }
+  },
+  "by_fault": {
+    "cpu": {
+      "candidate_recall_macro": 1.0,
+      "candidate_recall_min": 1.0,
+      "mrr_macro": 0.9954545454545455,
+      "proposal_count_mean": 21.9,
+      "proposal_count_max": 32,
+      "silver_precision_lower_bound_macro": 0.7700407985085405,
+      "budget_saturation_count": 1,
+      "budget_drop_total": 1
+    },
+    "mem": {
+      "candidate_recall_macro": 1.0,
+      "candidate_recall_min": 1.0,
+      "mrr_macro": 0.96,
+      "mrr_min": 0.85,
+      "proposal_count_mean": 25.6,
+      "proposal_count_max": 32,
+      "silver_precision_lower_bound_macro": 0.5757936507936507,
+      "budget_saturation_count": 5,
+      "budget_drop_total": 42
+    },
+    "disk": {
+      "candidate_recall_macro": 1.0,
+      "candidate_recall_min": 1.0,
+      "mrr_macro": 1.0,
+      "proposal_count_mean": 8.2,
+      "proposal_count_max": 14,
+      "silver_precision_lower_bound_macro": 0.7657720057720058,
+      "budget_saturation_count": 0,
+      "budget_drop_total": 0
+    },
+    "delay": {
+      "candidate_recall_macro": 1.0,
+      "candidate_recall_min": 1.0,
+      "mrr_macro": 0.9766233766233766,
+      "mrr_min": 0.9090909090909091,
+      "proposal_count_mean": 27.7,
+      "proposal_count_max": 32,
+      "silver_precision_lower_bound_macro": 0.5689719079939668,
+      "budget_saturation_count": 5,
+      "budget_drop_total": 72
+    },
+    "loss": {
+      "candidate_recall_macro": 1.0,
+      "candidate_recall_min": 1.0,
+      "mrr_macro": 0.990909090909091,
+      "proposal_count_mean": 20.2,
+      "proposal_count_max": 30,
+      "silver_precision_lower_bound_macro": 0.8245746845746845,
+      "budget_saturation_count": 0,
+      "budget_drop_total": 0
+    },
+    "socket": {
+      "candidate_recall_macro": 1.0,
+      "candidate_recall_min": 1.0,
+      "mrr_macro": 1.0,
+      "proposal_count_mean": 21.4,
+      "proposal_count_max": 32,
+      "silver_precision_lower_bound_macro": 0.7342284073453429,
+      "budget_saturation_count": 1,
+      "budget_drop_total": 2
+    }
+  },
+  "worst_cells": {
+    "silver_precision_lower_bound": {
+      "case": "re2tt_ts-auth-service_delay_3",
+      "fault": "delay",
+      "seed": 31,
+      "mask_ratio": 0.2,
+      "target_count": 11,
+      "proposal_count": 26,
+      "candidate_recall": 1.0,
+      "value": 0.4230769230769231
+    },
+    "mrr_within_a2": {
+      "case": "re2tt_ts-travel-service_mem_3",
+      "fault": "mem",
+      "seed": 31,
+      "mask_ratio": 0.4,
+      "target_count": 20,
+      "proposal_count": 32,
+      "candidate_recall": 1.0,
+      "value": 0.85
+    },
+    "budget_drop": {
+      "case": "re2tt_ts-auth-service_delay_3",
+      "fault": "delay",
+      "seed": 31,
+      "mask_ratio": 0.4,
+      "proposal_count": 32,
+      "candidate_recall": 1.0,
+      "dropped_by_budget": 20
+    }
+  },
+  "gate": {
+    "status": "PASS",
+    "passed": true,
+    "reason_codes": [],
+    "conditions": {
+      "complete_grid": true,
+      "all_candidate_recall_measurable": true,
+      "candidate_recall_each_cell": true,
+      "candidate_recall_macro": true,
+      "proposal_count_cap": true,
+      "budget_saturation_rate": true,
+      "leakage_checks_all_pass": true
+    }
+  },
+  "validation": {
+    "tests_passed": 95,
+    "tests_skipped": 5,
+    "subtests_passed": 10,
+    "branch_head_sha": "87ba2925f91317eacb3e6d68ff499f6a2afecd35",
+    "github_actions_run_id": 33577556148,
+    "artifact_id": 9827625110,
+    "artifact_size_bytes": 31470263,
+    "artifact_zip_sha256": "f8ffe957693eccbcc57718753ae878d1ec1f01af863a1a72569d34754b65b257",
+    "verified_file_count": 25,
+    "verified_source_bytes": 121565953,
+    "provenance_manifest_sha256": "fb3532771b2e52be0e0429efcf6dba9e08368ef066365c92125ebf8ffb9ad8cf",
+    "selected_cases_sha256": "f913991ae09a487bf6c8b8f0cf75b466eca9e89be100cfe6569ee6d611cb39c7"
+  },
+  "interpretation": {
+    "supported": "Across 60 RCAEval RE2-TT cells, bounded A2 retained every masked silver CALLS edge within at most 32 proposals.",
+    "primary_bottleneck": "candidate validity and pruning rather than candidate recall",
+    "warnings": [
+      "IID40 budget saturation was 12 of 30 cells (40 percent within the mask slice).",
+      "MEM and DELAY saturated all five IID40 seeds.",
+      "Silver precision lower bound reached 0.4231 in the worst cell.",
+      "Recovered CALLS relations are runtime structure, not causal CAUSES relations."
+    ],
+    "next_step": "Freeze A2 proposals and evaluate DeBERTa as tri-state corroborating evidence without hard-veto recall loss."
+  }
+}

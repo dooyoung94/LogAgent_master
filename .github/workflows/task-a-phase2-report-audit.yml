@@ -1,0 +1,123 @@
+name: Task A Phase 2 Report Audit
+
+on:
+  push:
+    branches:
+      - research/task-a-phase2-generalization
+    paths:
+      - ".github/workflows/task-a-phase2-report-audit.yml"
+      - "reports/task_a_phase2_cells.csv"
+      - "reports/task_a_phase2_results.json"
+      - "reports/task_a_phase2_results.md"
+  pull_request:
+    branches:
+      - research/reference-matrix-readiness
+    paths:
+      - ".github/workflows/task-a-phase2-report-audit.yml"
+      - "reports/task_a_phase2_cells.csv"
+      - "reports/task_a_phase2_results.json"
+      - "reports/task_a_phase2_results.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Audit frozen 60-cell matrix and aggregate report
+        run: |
+          python - <<'PY'
+          import csv
+          import hashlib
+          import json
+          import math
+          import statistics
+          from collections import Counter
+          from pathlib import Path
+
+          cells_path = Path("reports/task_a_phase2_cells.csv")
+          report_path = Path("reports/task_a_phase2_results.json")
+          expected_sha256 = "ce9aaab44dd50f1e7946392f020d167526296ed73a94b76c954dce1e287df286"
+
+          digest = hashlib.sha256(cells_path.read_bytes()).hexdigest()
+          assert digest == expected_sha256, (digest, expected_sha256)
+
+          with cells_path.open(encoding="utf-8", newline="") as stream:
+              rows = list(csv.DictReader(stream))
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+
+          assert len(rows) == 60
+          keys = [(row["case"], int(row["seed"]), row["mask_id"]) for row in rows]
+          assert len(set(keys)) == 60
+
+          expected_faults = {"cpu", "mem", "disk", "delay", "loss", "socket"}
+          expected_seeds = {11, 17, 23, 31, 47}
+          expected_ratios = {0.2, 0.4}
+          assert {row["fault"] for row in rows} == expected_faults
+          assert {int(row["seed"]) for row in rows} == expected_seeds
+          assert {float(row["mask_ratio"]) for row in rows} == expected_ratios
+
+          grid = Counter((row["fault"], float(row["mask_ratio"])) for row in rows)
+          assert set(grid) == {(fault, ratio) for fault in expected_faults for ratio in expected_ratios}
+          assert all(count == 5 for count in grid.values())
+
+          bool_columns = (
+              "budget_saturated",
+              "leakage_checks_all_pass",
+              "cell_gate_passed",
+          )
+          for column in bool_columns:
+              assert {row[column] for row in rows}.issubset({"True", "False"}), column
+          assert all(row["leakage_checks_all_pass"] == "True" for row in rows)
+          assert all(row["cell_gate_status"] == "PASS" for row in rows)
+          assert all(row["cell_gate_passed"] == "True" for row in rows)
+
+          recalls = [float(row["candidate_recall"]) for row in rows]
+          proposals = [int(row["a2_proposal_count"]) for row in rows]
+          compression = [float(row["compression_ratio"]) for row in rows]
+          precision_lb = [float(row["silver_precision_lower_bound"]) for row in rows]
+          mrr = [float(row["mrr_within_a2"]) for row in rows]
+          saturated = [row["budget_saturated"] == "True" for row in rows]
+          drops = [int(row["dropped_by_budget"]) for row in rows]
+
+          overall = report["overall"]
+          checks = {
+              "completed_cells": (len(rows), int(overall["completed_cells"])),
+              "candidate_recall_macro": (statistics.fmean(recalls), float(overall["candidate_recall_macro"])),
+              "candidate_recall_min": (min(recalls), float(overall["candidate_recall_min"])),
+              "mrr_within_a2_macro": (statistics.fmean(mrr), float(overall["mrr_within_a2_macro"])),
+              "mrr_within_a2_min": (min(mrr), float(overall["mrr_within_a2_min"])),
+              "proposal_count_mean": (statistics.fmean(proposals), float(overall["proposal_count_mean"])),
+              "proposal_count_median": (statistics.median(proposals), float(overall["proposal_count_median"])),
+              "proposal_count_max": (max(proposals), int(overall["proposal_count_max"])),
+              "compression_ratio_macro": (statistics.fmean(compression), float(overall["compression_ratio_macro"])),
+              "compression_ratio_min": (min(compression), float(overall["compression_ratio_min"])),
+              "silver_precision_lower_bound_macro": (statistics.fmean(precision_lb), float(overall["silver_precision_lower_bound_macro"])),
+              "silver_precision_lower_bound_min": (min(precision_lb), float(overall["silver_precision_lower_bound_min"])),
+              "budget_saturation_count": (sum(saturated), int(overall["budget_saturation_count"])),
+              "budget_saturation_rate": (statistics.fmean(saturated), float(overall["budget_saturation_rate"])),
+              "budget_drop_total": (sum(drops), int(overall["budget_drop_total"])),
+          }
+          for name, (observed, expected) in checks.items():
+              if isinstance(observed, float) or isinstance(expected, float):
+                  assert math.isclose(float(observed), float(expected), rel_tol=0.0, abs_tol=1e-12), (name, observed, expected)
+              else:
+                  assert observed == expected, (name, observed, expected)
+
+          assert report["status"] == "PASS"
+          assert report["gate"]["passed"] is True
+          assert all(report["gate"]["conditions"].values())
+          print(
+              "REPORT_AUDIT_PASS "
+              f"cells={len(rows)} recall_min={min(recalls):.4f} "
+              f"proposal_max={max(proposals)} saturation={sum(saturated)}/{len(rows)} "
+              f"csv_sha256={digest}"
+          )
+          PY

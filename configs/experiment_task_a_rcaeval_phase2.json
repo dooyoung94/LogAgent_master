@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcaeval-task-a-phase2-multicase-multiseed",
+  "base_experiment_config": "configs/experiment_task_a_rcaeval.json",
+  "dataset": {
+    "dataset_id": "rcaeval",
+    "repo_id": "phamquiluan/RCAEval",
+    "source_revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+    "system_id": "train-ticket",
+    "case_selection": {
+      "suite": "RE2-TT",
+      "anchor_case": "re2tt_ts-auth-service_cpu_2",
+      "fault_order": ["cpu", "mem", "disk", "delay", "loss", "socket"],
+      "require_logs": true,
+      "require_traces": true,
+      "policy": "fixed CPU anchor; for every remaining fault select the eligible case with minimum sha256(revision|task-a-phase2|case)",
+      "incident_count": 6
+    }
+  },
+  "seeds": [11, 17, 23, 31, 47],
+  "masks": [
+    {
+      "name": "iid20",
+      "kind": "iid",
+      "ratio": 0.2,
+      "level": "L2_PARENT_DROPPED"
+    },
+    {
+      "name": "iid40",
+      "kind": "iid",
+      "ratio": 0.4,
+      "level": "L2_PARENT_DROPPED"
+    }
+  ],
+  "relation_scope": ["CALLS"],
+  "active_stages": ["A0", "A1", "A2"],
+  "deferred_stages": ["A3", "A4", "A5"],
+  "candidate_budget": {
+    "applies_to": "abductive proposals only",
+    "preserve_direct_evidence": true,
+    "max_abductive_proposals": 32,
+    "max_per_subject": 8,
+    "max_per_object": 8,
+    "min_supporting_traces": 1,
+    "min_boundary_count": 1,
+    "ranking": [
+      "abduction_score_desc",
+      "supporting_trace_count_desc",
+      "boundary_count_desc",
+      "candidate_key_asc"
+    ]
+  },
+  "execution": {
+    "max_workers": 2,
+    "per_run_timeout_seconds": 900,
+    "prune_model_trace_artifacts": true
+  },
+  "evaluation": {
+    "gate_id": "D3_MULTICASE_MULTISEED_GENERALIZATION",
+    "expected_incidents": 6,
+    "expected_seeds": 5,
+    "expected_mask_ratios": [0.2, 0.4],
+    "candidate_recall_each_cell_min": 0.9,
+    "candidate_recall_macro_min": 0.95,
+    "abductive_proposal_count_max": 32,
+    "budget_saturation_rate_max": 0.25,
+    "leakage_checks_all_pass": true,
+    "complete_grid_required": true,
+    "secondary_metrics": [
+      "worst_case_recall",
+      "silver_precision_lower_bound",
+      "candidate_compression_ratio",
+      "proposal_count_distribution",
+      "budget_drop_total"
+    ]
+  },
+  "claim_limit": "RCAEval RE2-TT only; six deterministically selected incidents, five masking seeds, IID20/IID40; runtime CALLS candidate recovery only",
+  "notes": [
+    "The incident identifier is stable across seeds so the reference/model whole-trace split is fixed within each incident.",
+    "Fault labels are used only for preregistered case stratification and are never passed to relation inference.",
+    "The full Phase-1 candidate-ranking contract is retained unchanged.",
+    "DeBERTa, PSL, causal-path recovery, RCA and LLM evaluation remain out of scope."
+  ]
+}
