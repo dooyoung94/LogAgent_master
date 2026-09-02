@@ -74,9 +74,27 @@ def _task_a_implementation_fingerprint(config_path: Path) -> str:
     return digest.hexdigest()
 
 
+def _metric_value(metric: Any) -> float | None:
+    """Read a scalar from the structured metric objects emitted by metrics.py."""
+
+    if metric is None or isinstance(metric, bool):
+        return None
+    if isinstance(metric, (int, float)):
+        return float(metric)
+    if not isinstance(metric, Mapping):
+        return None
+    for key in ("value", "recall", "lower_bound"):
+        if key not in metric:
+            continue
+        value = _metric_value(metric[key])
+        if value is not None:
+            return value
+    return None
+
+
 def _task_a_gate(mask_summary: Mapping[str, Any], max_proposals: int) -> dict[str, Any]:
     a2_evaluation = mask_summary.get("evaluation", {}).get("A2", {})
-    recall = a2_evaluation.get("candidate_recall")
+    recall = _metric_value(a2_evaluation.get("candidate_recall"))
     diagnostics = mask_summary.get("diagnostics", {})
     abductive_count = diagnostics.get(
         "a2_abductive_proposal_count",
@@ -89,7 +107,7 @@ def _task_a_gate(mask_summary: Mapping[str, Any], max_proposals: int) -> dict[st
     measurable = recall is not None and abductive_count is not None
     passed = bool(
         measurable
-        and float(recall) >= 0.90
+        and recall >= 0.90
         and int(abductive_count) <= max_proposals
         and leakage_passed
     )
