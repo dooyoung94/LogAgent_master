@@ -16,6 +16,7 @@ on:
       - "tools/prepare_deberta_model.py"
       - "tools/run_task_a_phase3.py"
       - "tests/test_task_a_phase3.py"
+      - "tests/test_task_a_phase3_fallback.py"
       - "src/logagent_benchmark/onnx_deberta.py"
       - "src/logagent_benchmark/task_a_phase2.py"
       - "tools/prepare_task_a_phase2_data.py"
