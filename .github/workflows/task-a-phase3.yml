@@ -1,0 +1,135 @@
+name: Task A Phase 3 Tri-State Evidence
+
+on:
+  push:
+    branches:
+      - research/task-a-phase3-tristate
+    paths:
+      - ".github/workflows/task-a-phase3.yml"
+      - "configs/experiment_task_a_rcaeval_phase3.json"
+      - "src/logagent_benchmark/phase3_contract.py"
+      - "src/logagent_benchmark/phase3_nli.py"
+      - "src/logagent_benchmark/phase3_policy.py"
+      - "src/logagent_benchmark/task_a_phase3.py"
+      - "tools/prepare_deberta_model.py"
+      - "tools/run_task_a_phase3.py"
+      - "tests/test_task_a_phase3.py"
+      - "src/logagent_benchmark/onnx_deberta.py"
+      - "src/logagent_benchmark/task_a_phase2.py"
+      - "tools/prepare_task_a_phase2_data.py"
+      - "tools/run_task_a_phase2.py"
+      - "pyproject.toml"
+  pull_request:
+    branches:
+      - research/reference-matrix-readiness
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-a-phase3-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HF_HUB_DISABLE_TELEMETRY: "1"
+  DO_NOT_TRACK: "1"
+  ORT_DISABLE_TELEMETRY: "1"
+  TOKENIZERS_PARALLELISM: "false"
+
+jobs:
+  phase3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project, tests and frozen DeBERTa runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test,deberta]"
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Prepare deterministic Phase 2 source subset
+        run: |
+          python tools/prepare_task_a_phase2_data.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --dest data/raw/rcaeval/phase2
+
+      - name: Reproduce frozen A2 60-cell grid
+        run: |
+          python tools/run_task_a_phase2.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --raw-root data/raw/rcaeval/phase2 \
+            --output outputs/task_a/phase2 \
+            --max-workers 2
+
+      - name: Cache frozen DeBERTa model
+        uses: actions/cache@v4
+        with:
+          path: data/models/nli-deberta-v3-small
+          key: deberta-v3-small-fa280487-03c2221313dc
+
+      - name: Download and checksum frozen DeBERTa model
+        run: |
+          python tools/prepare_deberta_model.py \
+            --dest data/models/nli-deberta-v3-small
+
+      - name: Run A3 calibration and held-out validation
+        id: a3
+        shell: bash
+        run: |
+          set +e
+          TRANSFORMERS_OFFLINE=1 HF_HUB_OFFLINE=1 python tools/run_task_a_phase3.py \
+            --config configs/experiment_task_a_rcaeval_phase3.json \
+            --phase2-root outputs/task_a/phase2 \
+            --model-dir data/models/nli-deberta-v3-small \
+            --output outputs/task_a/phase3 \
+            2>&1 | tee outputs/task_a/phase3-execution.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload A3 compact artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-a-phase3-${{ github.sha }}
+          path: |
+            outputs/task_a/phase3
+            outputs/task_a/phase3-execution.log
+            outputs/task_a/phase2/summary.json
+            outputs/task_a/phase2/cells.csv
+            outputs/task_a/phase2/selected_cases.json
+            outputs/task_a/phase2/phase2_config.json
+            outputs/task_a/phase2/runs.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce held-out A3 gate
+        if: always()
+        run: |
+          test "${{ steps.a3.outputs.exit_code }}" = "0"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary = json.loads(
+              Path("outputs/task_a/phase3/summary.json").read_text(encoding="utf-8")
+          )
+          if not summary["gate"]["passed"]:
+              raise SystemExit(
+                  "D4 failed: " + ", ".join(summary["gate"]["reason_codes"])
+              )
+          print("D4_A3_HELDOUT_SHORTLIST_UTILITY: PASS")
+          PY
