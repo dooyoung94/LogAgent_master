@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcaeval-task-a-phase3-structural-evidence",
+  "dataset_revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+  "phase2_contract": {
+    "relation": "CALLS",
+    "required_incidents": 6,
+    "required_seeds": [11, 17, 23, 31, 47],
+    "required_mask_ratios": [0.2, 0.4],
+    "required_cells": 60,
+    "a2_max_proposals": 32
+  },
+  "calibration_split": {
+    "method": "sha256_case_order",
+    "calibration_incidents": 2,
+    "selection_uses_evaluator_metrics": false
+  },
+  "structural_evidence": {
+    "include_null_parent": true,
+    "source": "sanitized model traces only",
+    "features": [
+      "child_parent_duration_tightness",
+      "nearest_alternative_width_margin",
+      "container_service_uniqueness",
+      "forward_reverse_boundary_asymmetry",
+      "parent_span_diversity",
+      "trace_independence",
+      "operation_token_overlap",
+      "method_name_match",
+      "operation_pair_concentration"
+    ],
+    "uses_fault_or_root_labels": false,
+    "uses_mask_targets": false
+  },
+  "policy_search": {
+    "profiles": [
+      "temporal_directness",
+      "directional_structure",
+      "operation_compatibility",
+      "hybrid"
+    ],
+    "retention_fractions": [0.75, 0.8, 0.85, 0.9, 0.95],
+    "minimum_keep": [8, 10, 12, 14],
+    "structural_weights": [0.1, 0.2, 0.3, 0.4, 0.5],
+    "hard_veto": false
+  },
+  "calibration_gate": {
+    "recall_macro_min": 0.95,
+    "recall_each_cell_min": 0.9,
+    "mrr_noninferiority_tolerance": 0.01,
+    "matched_budget_recall_tolerance": 0.0,
+    "matched_budget_p_lb_delta_min": 0.0,
+    "matched_budget_mrr_delta_min": 0.0,
+    "matched_budget_additive_gain_required": true
+  },
+  "heldout_gate": {
+    "gate_id": "D4_A3_STRUCTURAL_HELDOUT_UTILITY",
+    "recall_macro_min": 0.95,
+    "recall_pooled_min": 0.95,
+    "recall_each_cell_min": 0.9,
+    "selected_count_ratio_max": 0.95,
+    "p_lb_macro_delta_min": 0.0,
+    "mrr_macro_delta_min": 0.0,
+    "matched_budget_recall_tolerance": 0.0,
+    "matched_budget_p_lb_delta_min": 0.0,
+    "matched_budget_mrr_delta_min": 0.0,
+    "matched_budget_additive_gain_required": true
+  },
+  "controls": {
+    "matched_budget_a2_only": true,
+    "purpose": "Separate structural evidence utility from shortlist-size utility."
+  },
+  "claim_limit": "Runtime CALLS candidate shortlisting only; not causal CAUSES or downstream RCA."
+}
