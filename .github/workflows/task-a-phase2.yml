@@ -1,0 +1,138 @@
+name: Task A Phase 2 Generalization
+
+on:
+  push:
+    branches:
+      - research/task-a-phase2-generalization
+    paths:
+      - ".github/workflows/task-a-phase2.yml"
+      - "configs/experiment_task_a_rcaeval_phase2.json"
+      - "configs/experiment_task_a_rcaeval.json"
+      - "src/logagent_benchmark/**"
+      - "tools/prepare_task_a_phase2_data.py"
+      - "tools/run_task_a_phase2.py"
+      - "tools/run_task_a.py"
+      - "tests/**"
+      - "pyproject.toml"
+  pull_request:
+    branches:
+      - research/reference-matrix-readiness
+    paths:
+      - ".github/workflows/task-a-phase2.yml"
+      - "configs/experiment_task_a_rcaeval_phase2.json"
+      - "src/logagent_benchmark/task_a_phase2.py"
+      - "tools/prepare_task_a_phase2_data.py"
+      - "tools/run_task_a_phase2.py"
+      - "tests/test_task_a_phase2.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-a-phase2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phase2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+          python -m pip install "huggingface-hub>=0.26,<1"
+
+      - name: Audit repository tests
+        run: python -m pytest -q
+
+      - name: Prepare deterministic six-incident RCAEval subset
+        run: |
+          python tools/prepare_task_a_phase2_data.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --dest data/raw/rcaeval/phase2
+
+      - name: Run 60-cell bounded Task A grid
+        id: phase2
+        shell: bash
+        run: |
+          set +e
+          python tools/run_task_a_phase2.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --raw-root data/raw/rcaeval/phase2 \
+            --output outputs/task_a/phase2 \
+            --max-workers 2
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Print compact Phase 2 summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("outputs/task_a/phase2/summary.json")
+          if not path.exists():
+              print("Phase-2 summary was not created")
+              raise SystemExit(0)
+          summary = json.loads(path.read_text(encoding="utf-8"))
+          gate = summary["gate"]
+          compact = {
+              "experiment_id": summary["experiment_id"],
+              "selected_cases": [
+                  {
+                      "fault": item["fault"],
+                      "case": item["case"],
+                      "root_cause_service": item["root_cause_service"],
+                      "n_traces": item["n_traces"],
+                  }
+                  for item in summary["selected_cases"]
+              ],
+              "seeds": summary["seeds"],
+              "gate": gate,
+              "provenance": summary["provenance"],
+          }
+          print("TASK_A_PHASE2_SUMMARY_START")
+          print(json.dumps(compact, indent=2, ensure_ascii=False, sort_keys=True))
+          print("TASK_A_PHASE2_SUMMARY_END")
+          PY
+
+      - name: Upload Phase 2 compact artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-a-phase2-${{ github.sha }}
+          path: outputs/task_a/phase2
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce Phase 2 gate
+        if: always()
+        run: |
+          test "${{ steps.phase2.outputs.exit_code }}" = "0"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary = json.loads(
+              Path("outputs/task_a/phase2/summary.json").read_text(encoding="utf-8")
+          )
+          if not summary["gate"]["passed"]:
+              raise SystemExit(
+                  "D3 failed: " + ", ".join(summary["gate"]["reason_codes"])
+              )
+          print("D3_MULTICASE_MULTISEED_GENERALIZATION: PASS")
+          PY
