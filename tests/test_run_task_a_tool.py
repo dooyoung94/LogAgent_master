@@ -1,5 +1,7 @@
 import importlib.util
+import json
 from pathlib import Path
+import tempfile
 import unittest
 
 
@@ -23,6 +25,38 @@ class TaskAToolTests(unittest.TestCase):
         )
         self.assertEqual(args.count("--config"), 1)
         self.assertIn("custom.json", args)
+
+    def test_phase2_case_encoded_incident_id_is_replaced_with_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cell.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "dataset": {
+                            "profile": "task_a_phase2_dynamic_subset",
+                            "incident_id": "rcaeval_re2tt_ts-order-service_disk_3",
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            MODULE.normalize_phase2_incident_id(["--config", str(path)])
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertIsNone(payload["dataset"]["incident_id"])
+
+    def test_phase1_incident_id_is_not_modified(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "phase1.json"
+            original = {
+                "dataset": {
+                    "profile": "smoke",
+                    "incident_id": "rcaeval_tt_smoke_0001",
+                }
+            }
+            path.write_text(json.dumps(original), encoding="utf-8")
+            MODULE.normalize_phase2_incident_id([f"--config={path}"])
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(payload, original)
 
 
 if __name__ == "__main__":
