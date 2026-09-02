@@ -1,0 +1,189 @@
+name: Task A Phase 3 Structural Evidence
+
+on:
+  push:
+    branches:
+      - research/task-a-phase3-structural-evidence
+    paths:
+      - ".github/workflows/task-a-phase3-structural.yml"
+      - "configs/experiment_task_a_rcaeval_phase3_structural.json"
+      - "src/logagent_benchmark/task_a_phase3_structural.py"
+      - "tools/run_task_a_phase3_structural.py"
+      - "tests/test_task_a_phase3_structural.py"
+      - "src/logagent_benchmark/task_a.py"
+      - "src/logagent_benchmark/task_a_phase2.py"
+      - "src/logagent_benchmark/cli_task_a.py"
+      - "src/logagent_benchmark/cli_v2.py"
+      - "src/logagent_benchmark/masking.py"
+      - "src/logagent_benchmark/recovery.py"
+      - "src/logagent_benchmark/rcaeval.py"
+      - "tools/prepare_task_a_phase2_data.py"
+      - "tools/run_task_a_phase2.py"
+      - "pyproject.toml"
+  pull_request:
+    branches:
+      - research/reference-matrix-readiness
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-a-phase3-structural-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  structural-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Prepare deterministic six-incident RCAEval subset
+        run: |
+          python tools/prepare_task_a_phase2_data.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --dest data/raw/rcaeval/phase2
+
+      - name: Restore heavy Phase 2 output
+        id: phase2-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: outputs/task_a/phase2_structural_source
+          key: >-
+            task-a-phase2-structural-heavy-${{
+              hashFiles(
+                'configs/experiment_task_a_rcaeval.json',
+                'configs/experiment_task_a_rcaeval_phase2.json',
+                'src/logagent_benchmark/cli_task_a.py',
+                'src/logagent_benchmark/cli_v2.py',
+                'src/logagent_benchmark/graph.py',
+                'src/logagent_benchmark/masking.py',
+                'src/logagent_benchmark/metrics.py',
+                'src/logagent_benchmark/rcaeval.py',
+                'src/logagent_benchmark/recovery.py',
+                'src/logagent_benchmark/task_a.py',
+                'src/logagent_benchmark/task_a_phase2.py',
+                'tools/run_task_a.py',
+                'tools/run_task_a_phase2.py'
+              )
+            }}
+
+      - name: Reproduce Phase 2 with sanitized trace artifacts
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
+        run: |
+          python tools/run_task_a_phase2.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --raw-root data/raw/rcaeval/phase2 \
+            --output outputs/task_a/phase2_structural_source \
+            --max-workers 2 \
+            --keep-heavy-artifacts
+
+      - name: Verify frozen A2 and structural handoff
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path("outputs/task_a/phase2_structural_source")
+          summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
+          if not summary["gate"]["passed"]:
+              raise SystemExit("Phase-2 D3 gate did not pass")
+          cells = pd.read_csv(root / "cells.csv")
+          truthy = {"true", "1", "yes", "y"}
+          if len(cells) != 60 or cells["case"].nunique() != 6:
+              raise SystemExit("Phase-2 grid differs from the structural contract")
+          if int(cells["a2_proposal_count"].max()) > 32:
+              raise SystemExit("A2 candidate budget exceeded 32")
+          for column in ("leakage_checks_all_pass", "cell_gate_passed"):
+              if not cells[column].astype(str).str.lower().isin(truthy).all():
+                  raise SystemExit(f"Phase-2 contract failed: {column}")
+          traces = sorted(root.glob("runs/*/seed-*/masks/*/model_input/traces.parquet"))
+          a2 = sorted(root.glob("runs/*/seed-*/masks/*/predictions/A2.parquet"))
+          if len(traces) != 60 or len(a2) != 60:
+              raise SystemExit(
+                  f"expected 60 trace/A2 artifacts, found traces={len(traces)} a2={len(a2)}"
+              )
+          required_trace = {
+              "trace_id", "span_id", "parent_span_id", "service_id",
+              "operation_name", "method_name", "start_time_us", "end_time_us",
+          }
+          invalid = []
+          for path in traces:
+              columns = set(pd.read_parquet(path).columns)
+              if not required_trace.issubset(columns):
+                  invalid.append(str(path))
+          if invalid:
+              raise SystemExit(f"trace artifacts lack structural columns: {len(invalid)}")
+          print("STRUCTURAL_HANDOFF_READY cells=60 traces=60 a2=60")
+          PY
+
+      - name: Save heavy Phase 2 output
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: outputs/task_a/phase2_structural_source
+          key: ${{ steps.phase2-cache.outputs.cache-primary-key }}
+
+      - name: Run structural evidence calibration and held-out validation
+        id: structural
+        shell: bash
+        run: |
+          set +e
+          python tools/run_task_a_phase3_structural.py \
+            --config configs/experiment_task_a_rcaeval_phase3_structural.json \
+            --phase2-root outputs/task_a/phase2_structural_source \
+            --output outputs/task_a/phase3_structural \
+            2>&1 | tee outputs/task_a/phase3-structural-execution.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload structural evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-a-phase3-structural-${{ github.sha }}
+          path: |
+            outputs/task_a/phase3_structural
+            outputs/task_a/phase3-structural-execution.log
+            outputs/task_a/phase2_structural_source/summary.json
+            outputs/task_a/phase2_structural_source/cells.csv
+            outputs/task_a/phase2_structural_source/selected_cases.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce structural held-out gate
+        if: always()
+        run: |
+          test "${{ steps.structural.outputs.exit_code }}" = "0"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("outputs/task_a/phase3_structural/summary.json")
+          summary = json.loads(path.read_text(encoding="utf-8"))
+          if not summary["gate"]["passed"]:
+              raise SystemExit(
+                  "D4 structural failed: "
+                  + ", ".join(summary["gate"]["reason_codes"])
+              )
+          print("D4_A3_STRUCTURAL_HELDOUT_UTILITY: PASS")
+          PY
