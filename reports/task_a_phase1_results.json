@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "report_id": "rcaeval-task-a-bounded-abduction-phase1-results",
-  "executed_at_utc": "2026-09-02T00:10:06Z",
+  "executed_at_utc": "2026-09-02T00:13:50Z",
   "status": "PASS",
   "decision_gate": "D2_BOUNDED_CANDIDATE_RECALL",
   "dataset": {
@@ -103,13 +103,15 @@
     "tests_passed": 88,
     "tests_skipped": 4,
     "subtests_passed": 10,
-    "validated_head_sha": "8de904664beb56ae65efefeb6c6af866f986ec28",
+    "validated_pr_head_sha": "8de904664beb56ae65efefeb6c6af866f986ec28",
     "merged_commit_sha": "82693fcfa815496e495519f5fd86dd6d5a0fc7bd",
-    "github_actions_run_id": 33574023760,
+    "pr_validation_run_id": 33574023760,
+    "github_actions_run_id": 33574304305,
     "implementation_sha256": "e7caaf57fa7310cae09c425796dd94e38924cc3413143c34b08ef388d160531a",
     "config_sha256": "12241046c5a5b464d00b5683418a62424eec756e6b72ad4e3a57d70d77d8f036",
-    "artifact_id": 9826002986,
-    "artifact_zip_sha256": "ad7d1b7a05b36d2ed7f8e79eaca485ffeee9372ff344e88c57f19659d35f92b1"
+    "artifact_id": 9826092462,
+    "artifact_size_bytes": 33798981,
+    "artifact_zip_sha256": "fa6717fc75ea00ce68efc69cb2726287f94956873ce60c32944caacf6b8ab117"
   },
   "claim_scope": {
     "supported": "One RCAEval TrainTicket incident and one seed under IID20/IID40 L2 masking retained every masked silver CALLS edge within 13/26 bounded proposals.",
