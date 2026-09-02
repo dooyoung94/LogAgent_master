@@ -12,6 +12,9 @@ on:
       - "tools/datasets.py"
       - "tests/**"
       - "pyproject.toml"
+  pull_request:
+    branches:
+      - research/reference-matrix-readiness
   workflow_dispatch:
 
 permissions:
@@ -23,7 +26,7 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - name: Checkout research branch
+      - name: Checkout tested revision
         uses: actions/checkout@v4
 
       - name: Set up Python 3.12
