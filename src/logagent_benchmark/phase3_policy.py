@@ -9,7 +9,10 @@ from typing import Any, Mapping, Sequence
 
 from .phase3_contract import Phase3Error, ShortlistPolicy
 
-def _a2_rank_norm(candidates: Sequence[dict[str, Any]]) -> Mapping[tuple[str, str, str], float]:
+
+def _a2_rank_norm(
+    candidates: Sequence[dict[str, Any]],
+) -> Mapping[tuple[str, str, str], float]:
     ordered = sorted(
         candidates,
         key=lambda item: (
@@ -23,7 +26,8 @@ def _a2_rank_norm(candidates: Sequence[dict[str, Any]]) -> Mapping[tuple[str, st
     )
     denominator = max(1, len(ordered) - 1)
     return {
-        (item["subject"], item["predicate"], item["object"]): 1.0 - index / denominator
+        (item["subject"], item["predicate"], item["object"]): 1.0
+        - index / denominator
         for index, item in enumerate(ordered)
     }
 
@@ -41,7 +45,10 @@ def apply_policy(
     for record in candidates:
         key = (record["subject"], record["predicate"], record["object"])
         nli_norm = (float(record["nli_evidence_score"]) + 1.0) / 2.0
-        score = (1.0 - policy.nli_weight) * a2_norm[key] + policy.nli_weight * nli_norm
+        score = (
+            (1.0 - policy.nli_weight) * a2_norm[key]
+            + policy.nli_weight * nli_norm
+        )
         enriched = dict(record)
         enriched["a2_rank_normalized"] = a2_norm[key]
         enriched["a3_score"] = score
@@ -50,7 +57,10 @@ def apply_policy(
 
     keep = min(
         len(scored),
-        max(policy.minimum_keep, int(math.ceil(policy.retention_fraction * len(scored)))),
+        max(
+            policy.minimum_keep,
+            int(math.ceil(policy.retention_fraction * len(scored))),
+        ),
     )
     direct = [item for item in scored if item["direct_evidence"]]
     ranked = sorted(
@@ -64,15 +74,20 @@ def apply_policy(
         ),
     )
     selected_keys = {
-        (item["subject"], item["predicate"], item["object"])
-        for item in direct
+        (item["subject"], item["predicate"], item["object"]) for item in direct
     }
     for item in ranked:
         if len(selected_keys) >= keep:
             break
-        selected_keys.add((item["subject"], item["predicate"], item["object"]))
+        selected_keys.add(
+            (item["subject"], item["predicate"], item["object"])
+        )
     for item in scored:
-        item["selected"] = (item["subject"], item["predicate"], item["object"]) in selected_keys
+        item["selected"] = (
+            item["subject"],
+            item["predicate"],
+            item["object"],
+        ) in selected_keys
     selected = [item for item in scored if item["selected"]]
     return selected, scored
 
@@ -83,7 +98,10 @@ def evaluate_shortlist(
     targets: set[tuple[str, str, str]],
     silver: set[tuple[str, str, str]],
 ) -> dict[str, Any]:
-    keys = {(str(item["subject"]), str(item["predicate"]), str(item["object"])) for item in selected}
+    keys = {
+        (str(item["subject"]), str(item["predicate"]), str(item["object"]))
+        for item in selected
+    }
     recovered = keys & targets
     recall = len(recovered) / len(targets) if targets else None
     matched = keys & silver
@@ -92,7 +110,11 @@ def evaluate_shortlist(
     by_query: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
     by_key: dict[tuple[str, str, str], Mapping[str, Any]] = {}
     for item in selected:
-        key = (str(item["subject"]), str(item["predicate"]), str(item["object"]))
+        key = (
+            str(item["subject"]),
+            str(item["predicate"]),
+            str(item["object"]),
+        )
         by_key[key] = item
         by_query.setdefault((key[0], key[1]), []).append(item)
     reciprocal: list[float] = []
@@ -107,12 +129,22 @@ def evaluate_shortlist(
         target_score = float(target_item["a3_score"])
         competitors = []
         for item in by_query.get((target[0], target[1]), ()):
-            key = (str(item["subject"]), str(item["predicate"]), str(item["object"]))
+            key = (
+                str(item["subject"]),
+                str(item["predicate"]),
+                str(item["object"]),
+            )
             if key == target or key in silver:
                 continue
             competitors.append(item)
-        higher = sum(float(item["a3_score"]) > target_score + epsilon for item in competitors)
-        tied = sum(abs(float(item["a3_score"]) - target_score) <= epsilon for item in competitors)
+        higher = sum(
+            float(item["a3_score"]) > target_score + epsilon
+            for item in competitors
+        )
+        tied = sum(
+            abs(float(item["a3_score"]) - target_score) <= epsilon
+            for item in competitors
+        )
         rank = 1 + higher + tied
         reciprocal.append(1.0 / rank)
         ranks.append(rank)
@@ -136,17 +168,33 @@ def evaluate_shortlist(
 def _aggregate(metrics: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     if not metrics:
         return {}
-    recalls = [float(item["recall"]) for item in metrics if item["recall"] is not None]
-    p_lbs = [float(item["silver_precision_lower_bound"]) for item in metrics if item["silver_precision_lower_bound"] is not None]
-    mrrs = [float(item["mrr"]) for item in metrics if item["mrr"] is not None]
+    recalls = [
+        float(item["recall"])
+        for item in metrics
+        if item["recall"] is not None
+    ]
+    p_lbs = [
+        float(item["silver_precision_lower_bound"])
+        for item in metrics
+        if item["silver_precision_lower_bound"] is not None
+    ]
+    mrrs = [
+        float(item["mrr"])
+        for item in metrics
+        if item["mrr"] is not None
+    ]
     counts = [int(item["selected_count"]) for item in metrics]
     total_targets = sum(int(item["target_count"]) for item in metrics)
-    total_recovered = sum(int(item["recovered_target_count"]) for item in metrics)
+    total_recovered = sum(
+        int(item["recovered_target_count"]) for item in metrics
+    )
     return {
         "cell_count": len(metrics),
         "recall_macro": statistics.fmean(recalls),
         "recall_min": min(recalls),
-        "recall_pooled": total_recovered / total_targets if total_targets else None,
+        "recall_pooled": total_recovered / total_targets
+        if total_targets
+        else None,
         "selected_count_mean": statistics.fmean(counts),
         "selected_count_median": statistics.median(counts),
         "selected_count_max": max(counts),
@@ -164,15 +212,22 @@ def _evaluate_policy_on_cells(
     rows: list[dict[str, Any]] = []
     for cell in cells:
         selected, _scored = apply_policy(cell["candidates"], policy)
-        metric = evaluate_shortlist(selected, targets=cell["targets"], silver=cell["silver"])
-        rows.append({
-            "case": cell["case"],
-            "fault": cell["fault"],
-            "seed": cell["seed"],
-            "mask_id": cell["mask_id"],
-            "mask_ratio": cell["mask_ratio"],
-            **metric,
-        })
+        metric = evaluate_shortlist(
+            selected,
+            targets=cell["targets"],
+            silver=cell["silver"],
+        )
+        rows.append(
+            {
+                "case": cell["case"],
+                "fault": cell["fault"],
+                "role": cell.get("role", "unspecified"),
+                "seed": cell["seed"],
+                "mask_id": cell["mask_id"],
+                "mask_ratio": cell["mask_ratio"],
+                **metric,
+            }
+        )
     return rows, _aggregate(rows)
 
 
@@ -181,108 +236,222 @@ def select_calibrated_policy(
     *,
     search: Mapping[str, Any],
     calibration_gate: Mapping[str, Any],
+    allow_diagnostic_fallback: bool = False,
 ) -> tuple[ShortlistPolicy, list[dict[str, Any]]]:
-    baseline_mrr = statistics.fmean(float(cell["a2_mrr"]) for cell in calibration_cells)
+    """Select a calibration-safe policy or an explicitly marked fallback.
+
+    The default behavior remains strict and raises when no policy satisfies the
+    preregistered calibration contract. ``allow_diagnostic_fallback=True`` is
+    used only so failed experiments can still serialize the full calibration
+    grid and held-out diagnostics. The fallback is selected exclusively from
+    calibration data and is marked ``feasible=False``; callers must include
+    calibration feasibility in their final scientific gate.
+    """
+
+    baseline_mrr = statistics.fmean(
+        float(cell["a2_mrr"]) for cell in calibration_cells
+    )
     candidates: list[dict[str, Any]] = []
     for retention in search["retention_fractions"]:
         for minimum_keep in search["minimum_keep"]:
-            control_policy = ShortlistPolicy(float(retention), int(minimum_keep), 0.0)
+            control_policy = ShortlistPolicy(
+                float(retention), int(minimum_keep), 0.0
+            )
             _control_rows, control = _evaluate_policy_on_cells(
                 calibration_cells, control_policy
             )
             for nli_weight in search["nli_weights"]:
-                policy = ShortlistPolicy(float(retention), int(minimum_keep), float(nli_weight))
-                _rows, aggregate = _evaluate_policy_on_cells(calibration_cells, policy)
-                recall_delta = aggregate["recall_macro"] - control["recall_macro"]
+                policy = ShortlistPolicy(
+                    float(retention), int(minimum_keep), float(nli_weight)
+                )
+                _rows, aggregate = _evaluate_policy_on_cells(
+                    calibration_cells, policy
+                )
+                recall_delta = (
+                    aggregate["recall_macro"] - control["recall_macro"]
+                )
                 p_lb_delta = (
                     aggregate["silver_precision_lower_bound_macro"]
                     - control["silver_precision_lower_bound_macro"]
                 )
                 mrr_delta = aggregate["mrr_macro"] - control["mrr_macro"]
                 additive_gain = p_lb_delta > 1e-12 or mrr_delta > 1e-12
-                feasible = (
-                    aggregate["recall_macro"] >= float(calibration_gate["recall_macro_min"])
-                    and aggregate["recall_min"] >= float(calibration_gate["recall_each_cell_min"])
-                    and aggregate["mrr_macro"]
-                    >= baseline_mrr - float(calibration_gate["mrr_noninferiority_tolerance"])
-                    and recall_delta
-                    >= -float(calibration_gate["matched_budget_recall_tolerance"])
-                    and p_lb_delta
-                    >= float(calibration_gate["matched_budget_p_lb_delta_min"])
-                    and mrr_delta
-                    >= float(calibration_gate["matched_budget_mrr_delta_min"])
-                    and (
-                        additive_gain
-                        if bool(calibration_gate.get("matched_budget_additive_gain_required", True))
-                        else True
+                condition_values = {
+                    "recall_macro": aggregate["recall_macro"]
+                    >= float(calibration_gate["recall_macro_min"]),
+                    "recall_each_cell": aggregate["recall_min"]
+                    >= float(calibration_gate["recall_each_cell_min"]),
+                    "mrr_noninferiority": aggregate["mrr_macro"]
+                    >= baseline_mrr
+                    - float(
+                        calibration_gate["mrr_noninferiority_tolerance"]
+                    ),
+                    "matched_budget_recall": recall_delta
+                    >= -float(
+                        calibration_gate["matched_budget_recall_tolerance"]
+                    ),
+                    "matched_budget_p_lb": p_lb_delta
+                    >= float(
+                        calibration_gate["matched_budget_p_lb_delta_min"]
+                    ),
+                    "matched_budget_mrr": mrr_delta
+                    >= float(
+                        calibration_gate["matched_budget_mrr_delta_min"]
+                    ),
+                    "matched_budget_additive_gain": additive_gain
+                    if bool(
+                        calibration_gate.get(
+                            "matched_budget_additive_gain_required", True
+                        )
                     )
+                    else True,
+                }
+                feasible = all(condition_values.values())
+                candidates.append(
+                    {
+                        **asdict(policy),
+                        **aggregate,
+                        "baseline_mrr_macro": baseline_mrr,
+                        "control_recall_macro": control["recall_macro"],
+                        "control_p_lb_macro": control[
+                            "silver_precision_lower_bound_macro"
+                        ],
+                        "control_mrr_macro": control["mrr_macro"],
+                        "matched_budget_recall_delta": recall_delta,
+                        "matched_budget_p_lb_delta": p_lb_delta,
+                        "matched_budget_mrr_delta": mrr_delta,
+                        "matched_budget_additive_gain": additive_gain,
+                        **{
+                            f"condition_{name}": value
+                            for name, value in condition_values.items()
+                        },
+                        "violation_count": sum(
+                            not value for value in condition_values.values()
+                        ),
+                        "feasible": feasible,
+                        "selected": False,
+                        "selection_status": "NOT_SELECTED",
+                    }
                 )
-                candidates.append({
-                    **asdict(policy),
-                    **aggregate,
-                    "baseline_mrr_macro": baseline_mrr,
-                    "control_recall_macro": control["recall_macro"],
-                    "control_p_lb_macro": control["silver_precision_lower_bound_macro"],
-                    "control_mrr_macro": control["mrr_macro"],
-                    "matched_budget_recall_delta": recall_delta,
-                    "matched_budget_p_lb_delta": p_lb_delta,
-                    "matched_budget_mrr_delta": mrr_delta,
-                    "matched_budget_additive_gain": additive_gain,
-                    "feasible": feasible,
-                })
+
     feasible_rows = [row for row in candidates if row["feasible"]]
-    if not feasible_rows:
+    if feasible_rows:
+        selection_pool = feasible_rows
+        selection_status = "FEASIBLE_POLICY"
+    elif allow_diagnostic_fallback:
+        selection_pool = candidates
+        selection_status = "DIAGNOSTIC_FALLBACK_NO_FEASIBLE_POLICY"
+    else:
         raise Phase3Error(
             "no calibrated A3 policy satisfies recall/MRR floors and adds utility "
             "over its matched-budget A2-only control"
         )
-    chosen = sorted(
-        feasible_rows,
-        key=lambda row: (
-            float(row["selected_count_mean"]),
-            -float(row["silver_precision_lower_bound_macro"]),
-            -float(row["mrr_macro"]),
-            float(row["nli_weight"]),
-            float(row["retention_fraction"]),
-            int(row["minimum_keep"]),
-        ),
-    )[0]
-    policy = ShortlistPolicy(
+
+    if not selection_pool:
+        raise Phase3Error("A3 policy search produced no candidate policies")
+
+    if feasible_rows:
+        chosen = sorted(
+            selection_pool,
+            key=lambda row: (
+                float(row["selected_count_mean"]),
+                -float(row["silver_precision_lower_bound_macro"]),
+                -float(row["mrr_macro"]),
+                float(row["nli_weight"]),
+                float(row["retention_fraction"]),
+                int(row["minimum_keep"]),
+            ),
+        )[0]
+    else:
+        # Calibration-only lexicographic fallback. It minimizes contract
+        # violations first, then protects recall/ranking before preferring a
+        # smaller shortlist. It is diagnostic evidence, never a passing policy.
+        chosen = sorted(
+            selection_pool,
+            key=lambda row: (
+                int(row["violation_count"]),
+                -float(row["recall_min"]),
+                -float(row["recall_macro"]),
+                -float(row["mrr_macro"]),
+                -float(row["silver_precision_lower_bound_macro"]),
+                -float(row["matched_budget_p_lb_delta"]),
+                -float(row["matched_budget_mrr_delta"]),
+                float(row["selected_count_mean"]),
+                float(row["nli_weight"]),
+                float(row["retention_fraction"]),
+                int(row["minimum_keep"]),
+            ),
+        )[0]
+
+    chosen_identity = (
         float(chosen["retention_fraction"]),
         int(chosen["minimum_keep"]),
         float(chosen["nli_weight"]),
     )
+    for row in candidates:
+        identity = (
+            float(row["retention_fraction"]),
+            int(row["minimum_keep"]),
+            float(row["nli_weight"]),
+        )
+        if identity == chosen_identity:
+            row["selected"] = True
+            row["selection_status"] = selection_status
+
+    policy = ShortlistPolicy(*chosen_identity)
     return policy, candidates
 
 
 def _baseline_aggregate(cells: Sequence[dict[str, Any]]) -> dict[str, Any]:
     return {
         "cell_count": len(cells),
-        "recall_macro": statistics.fmean(float(cell["a2_recall"]) for cell in cells),
+        "recall_macro": statistics.fmean(
+            float(cell["a2_recall"]) for cell in cells
+        ),
         "recall_min": min(float(cell["a2_recall"]) for cell in cells),
-        "selected_count_mean": statistics.fmean(int(cell["a2_count"]) for cell in cells),
-        "selected_count_median": statistics.median(int(cell["a2_count"]) for cell in cells),
+        "selected_count_mean": statistics.fmean(
+            int(cell["a2_count"]) for cell in cells
+        ),
+        "selected_count_median": statistics.median(
+            int(cell["a2_count"]) for cell in cells
+        ),
         "selected_count_max": max(int(cell["a2_count"]) for cell in cells),
-        "silver_precision_lower_bound_macro": statistics.fmean(float(cell["a2_p_lb"]) for cell in cells),
-        "silver_precision_lower_bound_min": min(float(cell["a2_p_lb"]) for cell in cells),
-        "mrr_macro": statistics.fmean(float(cell["a2_mrr"]) for cell in cells),
+        "silver_precision_lower_bound_macro": statistics.fmean(
+            float(cell["a2_p_lb"]) for cell in cells
+        ),
+        "silver_precision_lower_bound_min": min(
+            float(cell["a2_p_lb"]) for cell in cells
+        ),
+        "mrr_macro": statistics.fmean(
+            float(cell["a2_mrr"]) for cell in cells
+        ),
         "mrr_min": min(float(cell["a2_mrr"]) for cell in cells),
     }
 
 
-def _delta(enhanced: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str, float]:
+def _delta(
+    enhanced: Mapping[str, Any],
+    baseline: Mapping[str, Any],
+) -> dict[str, float]:
     return {
-        "recall_macro": float(enhanced["recall_macro"]) - float(baseline["recall_macro"]),
-        "selected_count_mean": float(enhanced["selected_count_mean"]) - float(baseline["selected_count_mean"]),
+        "recall_macro": float(enhanced["recall_macro"])
+        - float(baseline["recall_macro"]),
+        "selected_count_mean": float(enhanced["selected_count_mean"])
+        - float(baseline["selected_count_mean"]),
         "silver_precision_lower_bound_macro": (
             float(enhanced["silver_precision_lower_bound_macro"])
             - float(baseline["silver_precision_lower_bound_macro"])
         ),
-        "mrr_macro": float(enhanced["mrr_macro"]) - float(baseline["mrr_macro"]),
+        "mrr_macro": float(enhanced["mrr_macro"])
+        - float(baseline["mrr_macro"]),
     }
 
 
 __all__ = [
-    "_baseline_aggregate", "_delta", "_evaluate_policy_on_cells",
-    "apply_policy", "evaluate_shortlist", "select_calibrated_policy",
+    "_baseline_aggregate",
+    "_delta",
+    "_evaluate_policy_on_cells",
+    "apply_policy",
+    "evaluate_shortlist",
+    "select_calibrated_policy",
 ]
