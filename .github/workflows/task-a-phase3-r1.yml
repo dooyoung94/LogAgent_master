@@ -1,0 +1,158 @@
+name: Task A Phase 3-R1 Structured Evidence
+
+on:
+  push:
+    branches:
+      - research/task-a-phase3-r1-structured-evidence
+    paths:
+      - ".github/workflows/task-a-phase3-r1.yml"
+      - "configs/experiment_task_a_rcaeval_phase3_r1.json"
+      - "src/logagent_benchmark/task_a_phase3_r1.py"
+      - "tools/run_task_a_phase3_r1.py"
+      - "tests/test_task_a_phase3_r1.py"
+      - "docs/task_a_phase3_r1_structured_evidence.md"
+  pull_request:
+    branches:
+      - research/reference-matrix-readiness
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: task-a-phase3-r1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  structured-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Download frozen A3 diagnostic artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ARTIFACT_ID: "9832926724"
+          SOURCE_ARTIFACT_SHA256: "1b5e5fbba01702eee359f729de478b19767d596bd88a3b1023f46385b9bdbab6"
+        run: |
+          mkdir -p inputs/a3
+          curl --fail --location \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${SOURCE_ARTIFACT_ID}/zip" \
+            --output inputs/task-a-phase3-source.zip
+          echo "${SOURCE_ARTIFACT_SHA256}  inputs/task-a-phase3-source.zip" | sha256sum --check
+          unzip -q inputs/task-a-phase3-source.zip -d inputs/a3
+
+      - name: Verify frozen 1,250-candidate handoff
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          paths = list(Path("inputs/a3").rglob("a3_candidate_analysis.parquet"))
+          if len(paths) != 1:
+              raise SystemExit(f"expected one candidate analysis, found {len(paths)}")
+          frame = pd.read_parquet(paths[0])
+          required = {
+              "incident_id", "seed", "mask_id", "subject", "predicate", "object",
+              "a2_score", "proposal_rank", "supporting_traces", "boundary_spans",
+              "reverse_supporting_traces", "reverse_boundary_spans",
+              "is_masked_target", "is_silver_matched", "role"
+          }
+          if len(frame) != 1250 or not required.issubset(frame.columns):
+              raise SystemExit(
+                  f"invalid source rows={len(frame)} missing={sorted(required - set(frame.columns))}"
+              )
+          print(f"A3_R1_HANDOFF_READY rows={len(frame)} cells={frame.groupby(['incident_id','seed','mask_id']).ngroups}")
+          Path("inputs/a3_candidate_analysis_path.txt").write_text(str(paths[0]))
+          PY
+
+      - name: Run A3-R1 structured evidence validation
+        id: experiment
+        shell: bash
+        run: |
+          set +e
+          ANALYSIS=$(cat inputs/a3_candidate_analysis_path.txt)
+          python tools/run_task_a_phase3_r1.py \
+            --candidate-analysis "$ANALYSIS" \
+            --config configs/experiment_task_a_rcaeval_phase3_r1.json \
+            --output outputs/task_a/phase3_r1 \
+            2>&1 | tee outputs/task_a/phase3_r1-execution.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Print compact result
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("outputs/task_a/phase3_r1/published/task_a_phase3_r1_results.json")
+          if not path.exists():
+              raise SystemExit("A3-R1 result was not created")
+          summary = json.loads(path.read_text(encoding="utf-8"))
+          held = summary["heldout"]
+          compact = {
+              "status": summary["status"],
+              "selected_policy": summary["selected_policy"],
+              "calibration_feasible": summary["calibration"]["feasible"],
+              "feasible_policy_count": summary["calibration"]["feasible_policy_count"],
+              "baseline_a2_full": held["baseline_a2_full"],
+              "proposed_a3_r1": held["proposed_a3_r1"],
+              "delta_vs_equal_size_a2": held["delta_vs_equal_size_a2"],
+              "gate": summary["gate"],
+          }
+          print("TASK_A_PHASE3_R1_SUMMARY_START")
+          print(json.dumps(compact, indent=2, ensure_ascii=False, sort_keys=True))
+          print("TASK_A_PHASE3_R1_SUMMARY_END")
+          PY
+
+      - name: Upload complete A3-R1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-a-phase3-r1-${{ github.sha }}
+          path: |
+            outputs/task_a/phase3_r1
+            outputs/task_a/phase3_r1-execution.log
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce scientific gate
+        if: always()
+        run: |
+          test "${{ steps.experiment.outputs.exit_code }}" = "0"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(
+              Path("outputs/task_a/phase3_r1/published/task_a_phase3_r1_results.json").read_text()
+          )
+          if not summary["gate"]["passed"]:
+              raise SystemExit(
+                  "D4A failed: " + ", ".join(summary["gate"]["reason_codes"])
+              )
+          print("D4A_A3_R1_STRUCTURED_EVIDENCE_UTILITY: PASS")
+          PY
