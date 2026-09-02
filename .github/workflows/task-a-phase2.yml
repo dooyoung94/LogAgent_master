@@ -175,6 +175,11 @@ jobs:
           print("TASK_A_PHASE2_SUMMARY_END")
           PY
 
+      - name: Remove large model-trace copies
+        if: always()
+        run: |
+          find outputs/task_a/phase2 -type f -path '*/model_input/traces.parquet' -print -delete 2>/dev/null || true
+
       - name: Upload Phase 2 compact artifacts
         if: always()
         uses: actions/upload-artifact@v4
