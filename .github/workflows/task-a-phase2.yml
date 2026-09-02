@@ -23,7 +23,9 @@ on:
       - "src/logagent_benchmark/task_a_phase2.py"
       - "tools/prepare_task_a_phase2_data.py"
       - "tools/run_task_a_phase2.py"
+      - "tools/run_task_a.py"
       - "tests/test_task_a_phase2.py"
+      - "tests/test_run_task_a_tool.py"
   workflow_dispatch:
 
 permissions:
@@ -62,6 +64,59 @@ jobs:
           python tools/prepare_task_a_phase2_data.py \
             --config configs/experiment_task_a_rcaeval_phase2.json \
             --dest data/raw/rcaeval/phase2
+
+      - name: Preflight one incident and one seed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          from logagent_benchmark.task_a_phase2 import (
+              build_cell_config,
+              select_phase2_cases,
+          )
+
+          phase2 = json.loads(
+              Path("configs/experiment_task_a_rcaeval_phase2.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          base = json.loads(
+              Path("configs/experiment_task_a_rcaeval.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          index = pd.read_parquet("data/raw/rcaeval/phase2/cases.parquet")
+          selected = select_phase2_cases(index, phase2)
+          config = build_cell_config(base, phase2, selected[0], phase2["seeds"][0])
+          path = Path("outputs/task_a/preflight-config.json")
+          path.parent.mkdir(parents=True, exist_ok=True)
+          path.write_text(
+              json.dumps(config, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(
+              f"preflight case={selected[0]['case']} seed={phase2['seeds'][0]} "
+              f"config={path}"
+          )
+          PY
+          python tools/run_task_a.py \
+            --config outputs/task_a/preflight-config.json \
+            --raw-root data/raw/rcaeval/phase2 \
+            --output outputs/task_a/preflight
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary = json.loads(
+              Path("outputs/task_a/preflight/summary.json").read_text(encoding="utf-8")
+          )
+          print(json.dumps(summary["decision_gate"], indent=2, sort_keys=True))
+          if not summary["decision_gate"]["passed"]:
+              raise SystemExit("Phase-2 preflight candidate gate failed")
+          PY
+          rm -rf outputs/task_a/preflight outputs/task_a/preflight-config.json
 
       - name: Run 60-cell bounded Task A grid
         id: phase2
@@ -104,6 +159,16 @@ jobs:
               "seeds": summary["seeds"],
               "gate": gate,
               "provenance": summary["provenance"],
+              "errors": [
+                  {
+                      "case": item["case"],
+                      "seed": item["seed"],
+                      "detail": item.get("detail"),
+                      "log_path": item.get("log_path"),
+                  }
+                  for item in summary.get("run_records", [])
+                  if item.get("status") != "READY"
+              ][:5],
           }
           print("TASK_A_PHASE2_SUMMARY_START")
           print(json.dumps(compact, indent=2, ensure_ascii=False, sort_keys=True))
