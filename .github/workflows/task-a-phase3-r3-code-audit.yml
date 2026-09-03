@@ -1,0 +1,70 @@
+name: Task A Phase 3-R3 Code Audit
+
+on:
+  push:
+    branches:
+      - research/task-a-phase3-r3-channel-nli
+    paths:
+      - ".github/workflows/task-a-phase3-r3-code-audit.yml"
+      - "configs/experiment_task_a_rcaeval_phase3_r3.json"
+      - "src/logagent_benchmark/task_a_phase3_r3.py"
+      - "tools/run_task_a_phase3_r3.py"
+      - "tests/test_task_a_phase3_r3.py"
+      - "docs/task_a_phase3_r3_channel_nli.md"
+  pull_request:
+    branches:
+      - research/reference-matrix-readiness
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  code-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install full test and DeBERTa dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test,deberta]"
+
+      - name: Compile R3 implementation
+        run: |
+          python -m py_compile \
+            src/logagent_benchmark/task_a_phase3_r3.py \
+            tools/run_task_a_phase3_r3.py
+
+      - name: Validate R3 configuration contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("configs/experiment_task_a_rcaeval_phase3_r3.json")
+          config = json.loads(path.read_text(encoding="utf-8"))
+          assert config["experiment_id"] == "rcaeval-task-a-phase3-r3-channel-nli"
+          assert config["source_contract"]["required_candidate_rows"] == 1250
+          assert config["source_contract"]["required_cells"] == 60
+          assert config["evidence_contract"]["single_composite_premise_forbidden"] is True
+          assert config["evidence_contract"]["hard_veto"] is False
+          assert config["controls"]["equal_size_operational_only"] is True
+          assert config["controls"]["equal_size_a2"] is True
+          for operational in config["policy_search"]["operational_weights"]:
+              for nli in config["policy_search"]["nli_weights"]:
+                  assert 1.0 - float(operational) - float(nli) >= 0.2 - 1e-12
+          print("R3_CONFIG_CONTRACT_PASS")
+          PY
+
+      - name: Run complete repository regression tests
+        run: python -m pytest -q
