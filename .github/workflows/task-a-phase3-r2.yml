@@ -8,8 +8,10 @@ on:
       - ".github/workflows/task-a-phase3-r2.yml"
       - "configs/experiment_task_a_rcaeval_phase3_r2.json"
       - "src/logagent_benchmark/task_a_phase3_r2.py"
+      - "src/logagent_benchmark/task_a_phase3_r2_compat.py"
       - "tools/run_task_a_phase3_r2.py"
       - "tests/test_task_a_phase3_r2.py"
+      - "tests/test_task_a_phase3_r2_compat.py"
       - "docs/task_a_phase3_r2_operational_evidence.md"
       - "src/logagent_benchmark/cli_v2.py"
       - "src/logagent_benchmark/task_a.py"
@@ -155,6 +157,41 @@ jobs:
           code=${PIPESTATUS[0]}
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
+
+      - name: Verify opaque all-candidate R3 handoff
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path("outputs/task_a/phase3_r2")
+          model_path = root / "model_output" / "a3_r2_operational_features.parquet"
+          private_path = root / "evaluator_private" / "all_candidate_analysis.parquet"
+          token_path = root / "evaluator_private" / "incident_token_manifest.json"
+          if not model_path.is_file() or not private_path.is_file() or not token_path.is_file():
+              raise SystemExit("R2 did not materialize the R3 handoff")
+          model = pd.read_parquet(model_path)
+          private = pd.read_parquet(private_path)
+          if len(model) != 1250 or len(private) != 1250:
+              raise SystemExit(f"R3 handoff row count changed: model={len(model)} private={len(private)}")
+          required_model = {
+              "incident_token", "seed", "mask_id", "subject", "predicate", "object",
+              "representative_parent_operation", "representative_child_operation",
+              "direction_role_raw", "operation_endpoint_raw", "method_route_raw", "combined_raw",
+          }
+          missing = required_model - set(model.columns)
+          if missing:
+              raise SystemExit(f"R3 model handoff missing columns: {sorted(missing)}")
+          forbidden = {"case", "fault", "role", "is_masked_target", "is_silver_matched"}
+          leaked = forbidden & set(model.columns)
+          if leaked:
+              raise SystemExit(f"evaluator fields leaked into model handoff: {sorted(leaked)}")
+          if not forbidden.issubset(private.columns):
+              raise SystemExit("evaluator-private handoff is missing labels")
+          if model["incident_token"].astype(str).str.contains("auth|travel|order|cpu|mem|disk", case=False, regex=True).any():
+              raise SystemExit("opaque incident token contains case semantics")
+          print("A3_R3_HANDOFF_READY candidates=1250 cells=60")
+          PY
 
       - name: Print compact R2 result
         if: always()
