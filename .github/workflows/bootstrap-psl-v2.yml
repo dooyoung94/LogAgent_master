@@ -1,0 +1,62 @@
+name: Bootstrap Task A Phase 4 PSL v2
+
+on:
+  push:
+    branches:
+      - research/task-a-phase4-psl-v2-abstention
+    paths:
+      - ".github/workflows/bootstrap-psl-v2.yml"
+      - ".bootstrap/psl_v2_payload.part-*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PSL v2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: research/task-a-phase4-psl-v2-abstention
+
+      - name: Reassemble and verify implementation payload
+        run: |
+          cat \
+            .bootstrap/psl_v2_payload.part-00 \
+            .bootstrap/psl_v2_payload.part-01 \
+            .bootstrap/psl_v2_payload.part-02 \
+            .bootstrap/psl_v2_payload.part-03 \
+            .bootstrap/psl_v2_payload.part-04 \
+            .bootstrap/psl_v2_payload.part-05 \
+            > /tmp/psl-v2.b64
+          echo "dd6f289710e0e39b783f83a782f9cd73abfd4ba874ba08133b01e3d00627cf17  /tmp/psl-v2.b64" | sha256sum --check
+          base64 --decode /tmp/psl-v2.b64 > /tmp/psl-v2.tar.gz
+          echo "d2c5616f706a6cfd390b7265943eacb9c795b7104141787227e90abee4bc0b7c  /tmp/psl-v2.tar.gz" | sha256sum --check
+          tar -xzf /tmp/psl-v2.tar.gz -C .
+          python -m py_compile \
+            src/logagent_benchmark/psl_direct_evidence_v2.py \
+            src/logagent_benchmark/task_a_phase4_psl_v2.py \
+            tools/run_task_a_phase4_psl_v2.py \
+            tests/test_task_a_phase4_psl_v2.py
+
+      - name: Commit direct-evidence PSL v2 implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            .github/workflows/task-a-phase4-psl-v2.yml \
+            configs/experiment_task_a_rcaeval_phase4_psl_v2.json \
+            docs/task_a_phase4_psl_v2.md \
+            src/logagent_benchmark/psl_direct_evidence_v2.py \
+            src/logagent_benchmark/task_a_phase4_psl_v2.py \
+            tests/test_task_a_phase4_psl_v2.py \
+            tools/run_task_a_phase4_psl_v2.py
+          if git diff --cached --quiet; then
+            echo "PSL v2 implementation is already materialized"
+          else
+            git commit -m "feat: add direct-evidence PSL v2 abstention validation"
+            git push origin HEAD:research/task-a-phase4-psl-v2-abstention
+          fi
