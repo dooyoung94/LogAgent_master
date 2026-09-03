@@ -1,0 +1,257 @@
+name: Task A Phase 3-R3 Channel NLI v2
+
+on:
+  push:
+    branches:
+      - research/task-a-phase3-r3-channel-nli
+    paths:
+      - ".github/workflows/task-a-phase3-r3-v2.yml"
+      - "configs/experiment_task_a_rcaeval_phase3_r3_v2.json"
+      - "src/logagent_benchmark/task_a_phase3_r3_channel_v2.py"
+      - "src/logagent_benchmark/task_a_phase3_r2.py"
+      - "src/logagent_benchmark/task_a_phase3_r2_compat.py"
+      - "tools/run_task_a_phase3_r3_v2.py"
+      - "tests/test_task_a_phase3_r3_v2.py"
+      - "docs/task_a_phase3_r3_channel_nli_v2.md"
+      - "src/logagent_benchmark/**"
+      - "tools/prepare_task_a_phase2_data.py"
+      - "tools/prepare_deberta_model.py"
+      - "tools/run_task_a_phase2.py"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: task-a-phase3-r3-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  channel-nli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and experiment dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test,deberta]"
+          python -m pip install "huggingface-hub>=0.26,<1"
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Restore heavy Phase 2 source
+        id: phase2-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: outputs/task_a/phase2_r3_source
+          key: >-
+            task-a-phase2-r3-heavy-${{
+              hashFiles(
+                'configs/experiment_task_a_rcaeval.json',
+                'configs/experiment_task_a_rcaeval_phase2.json',
+                'src/logagent_benchmark/cli_task_a.py',
+                'src/logagent_benchmark/cli_v2.py',
+                'src/logagent_benchmark/graph.py',
+                'src/logagent_benchmark/masking.py',
+                'src/logagent_benchmark/metrics.py',
+                'src/logagent_benchmark/rcaeval.py',
+                'src/logagent_benchmark/recovery.py',
+                'src/logagent_benchmark/task_a.py',
+                'src/logagent_benchmark/task_a_phase2.py',
+                'tools/run_task_a.py',
+                'tools/run_task_a_phase2.py'
+              )
+            }}
+
+      - name: Prepare deterministic RCAEval subset on cache miss
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
+        run: |
+          python tools/prepare_task_a_phase2_data.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --dest data/raw/rcaeval/phase2
+
+      - name: Reproduce heavy Phase 2 source on cache miss
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
+        run: |
+          python tools/run_task_a_phase2.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --raw-root data/raw/rcaeval/phase2 \
+            --output outputs/task_a/phase2_r3_source \
+            --max-workers 2 \
+            --keep-heavy-artifacts
+
+      - name: Save heavy Phase 2 source on cache miss
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: outputs/task_a/phase2_r3_source
+          key: ${{ steps.phase2-cache.outputs.cache-primary-key }}
+
+      - name: Verify Phase 2 handoff
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path("outputs/task_a/phase2_r3_source")
+          summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
+          if not summary["gate"]["passed"]:
+              raise SystemExit("Phase-2 D3 gate did not pass")
+          cells = pd.read_csv(root / "cells.csv")
+          if len(cells) != 60 or cells["case"].nunique() != 6:
+              raise SystemExit("Phase-2 grid differs from R3 contract")
+          if int(cells["a2_proposal_count"].sum()) != 1250:
+              raise SystemExit("A2 candidate handoff differs from 1,250-row contract")
+          traces = sorted(root.glob("runs/*/seed-*/masks/*/model_input/traces.parquet"))
+          a2 = sorted(root.glob("runs/*/seed-*/masks/*/predictions/A2.parquet"))
+          observed = sorted(root.glob("runs/*/seed-*/masks/*/model_input/observed_edges.parquet"))
+          if not (len(traces) == len(a2) == len(observed) == 60):
+              raise SystemExit(
+                  f"handoff artifacts differ: traces={len(traces)} a2={len(a2)} observed={len(observed)}"
+              )
+          print("A3_R3_HANDOFF_READY cells=60 candidates=1250 traces=60")
+          PY
+
+      - name: Restore frozen DeBERTa model
+        id: model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: data/models/nli-deberta-v3-small
+          key: deberta-nli-small-fa280487-quint8-avx2-03c22213
+
+      - name: Prepare frozen DeBERTa model on cache miss
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          python tools/prepare_deberta_model.py \
+            --dest data/models/nli-deberta-v3-small
+
+      - name: Save frozen DeBERTa model on cache miss
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: data/models/nli-deberta-v3-small
+          key: deberta-nli-small-fa280487-quint8-avx2-03c22213
+
+      - name: Run channel-wise DeBERTa validation
+        id: experiment
+        shell: bash
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+          TOKENIZERS_PARALLELISM: "false"
+        run: |
+          mkdir -p outputs/task_a
+          set +e
+          python tools/run_task_a_phase3_r3_v2.py \
+            --config configs/experiment_task_a_rcaeval_phase3_r3_v2.json \
+            --phase2-root outputs/task_a/phase2_r3_source \
+            --model-dir data/models/nli-deberta-v3-small \
+            --output outputs/task_a/phase3_r3 \
+            --max-workers 2 \
+            2>&1 | tee outputs/task_a/phase3-r3-execution.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Verify execution and print compact result
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          code = int("${{ steps.experiment.outputs.exit_code || '99' }}")
+          if code not in (0, 2):
+              raise SystemExit(f"R3 execution crashed with exit code {code}")
+          path = Path("outputs/task_a/phase3_r3/published/task_a_phase3_r3_results.json")
+          if not path.is_file():
+              raise SystemExit("R3 result JSON was not created")
+          summary = json.loads(path.read_text(encoding="utf-8"))
+          if summary["source"]["candidate_rows"] != 1250:
+              raise SystemExit("R3 did not preserve all 1,250 A2 candidates before shortlist")
+          if summary["source"]["candidate_cells"] != 60:
+              raise SystemExit("R3 did not evaluate all 60 cells")
+          held = summary["heldout"]
+          compact = {
+              "status": summary["status"],
+              "selected_policy": summary["selected_policy"],
+              "feasible_policy_count": summary["calibration"]["feasible_policy_count"],
+              "baseline_a2_full": held["baseline_a2_full"],
+              "proposed_a3_r3": held["proposed_a3_r3"],
+              "delta_vs_equal_size_a2": held["delta_vs_equal_size_a2"],
+              "delta_vs_equal_size_r2": held["delta_vs_equal_size_r2"],
+              "nli": summary["nli_diagnostics"],
+              "gate": summary["gate"],
+          }
+          print("TASK_A_PHASE3_R3_SUMMARY_START")
+          print(json.dumps(compact, indent=2, ensure_ascii=False, sort_keys=True))
+          print("TASK_A_PHASE3_R3_SUMMARY_END")
+          PY
+
+      - name: Upload complete R3 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-a-phase3-r3-${{ github.sha }}
+          path: |
+            outputs/task_a/phase3_r3
+            outputs/task_a/phase3-r3-execution.log
+            outputs/task_a/phase2_r3_source/summary.json
+            outputs/task_a/phase2_r3_source/cells.csv
+            outputs/task_a/phase2_r3_source/selected_cases.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish PASS or FAIL reports to branch
+        if: always() && github.event_name == 'push'
+        run: |
+          test -f outputs/task_a/phase3_r3/published/task_a_phase3_r3_results.json
+          cp outputs/task_a/phase3_r3/published/task_a_phase3_r3_results.md reports/task_a_phase3_r3_results.md
+          cp outputs/task_a/phase3_r3/published/task_a_phase3_r3_results.json reports/task_a_phase3_r3_results.json
+          cp outputs/task_a/phase3_r3/published/task_a_phase3_r3_calibration_cells.csv reports/task_a_phase3_r3_calibration_cells.csv
+          cp outputs/task_a/phase3_r3/published/task_a_phase3_r3_heldout_cells.csv reports/task_a_phase3_r3_heldout_cells.csv
+          cp outputs/task_a/phase3_r3/published/task_a_phase3_r3_policy_grid.csv reports/task_a_phase3_r3_policy_grid.csv
+          cp outputs/task_a/phase3_r3/published/task_a_phase3_r3_status.txt reports/task_a_phase3_r3_status.txt
+          cp outputs/task_a/phase3_r3/published/task_a_phase3_r3_manifest.json reports/task_a_phase3_r3_manifest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/task_a_phase3_r3_*
+          if git diff --cached --quiet; then
+            echo "R3 reports already match generated outputs"
+          else
+            status=$(cat reports/task_a_phase3_r3_status.txt | tr -d '\r\n')
+            git commit -m "results: publish A3-R3 channel NLI ${status}"
+            git push origin HEAD:research/task-a-phase3-r3-channel-nli
+          fi
+
+      - name: Report scientific gate without hiding negative result
+        if: always()
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(
+              Path("outputs/task_a/phase3_r3/published/task_a_phase3_r3_results.json").read_text()
+          )
+          if not summary["gate"]["passed"]:
+              raise SystemExit(
+                  "D4C failed: " + ", ".join(summary["gate"]["reason_codes"])
+              )
+          print("D4C_A3_R3_CHANNEL_NLI_DEVELOPMENT: PASS")
+          PY
