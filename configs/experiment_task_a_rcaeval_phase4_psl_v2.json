@@ -1,0 +1,69 @@
+{
+  "schema_version": 2,
+  "experiment_id": "rcaeval-task-a-phase4-direct-evidence-psl-v2",
+  "gate_id": "D4D_A4_DIRECT_EVIDENCE_ABSTENTION_V2",
+  "source_contract": {
+    "artifact_id": 9874215580,
+    "artifact_zip_sha256": "4a1ea87b11a931cc31001bd71e25aa4bcc79695c4c9bb396d0137d75c97e2613",
+    "candidate_analysis_filename": "all_candidate_analysis.parquet",
+    "candidate_analysis_sha256": "b70eae427275fa368c217b82a5e4635765d3526f5b2be13cc062ec979c44ab31",
+    "candidate_rows": 1250,
+    "candidate_cells": 60,
+    "incidents": 6,
+    "calibration_cells": 20,
+    "heldout_cells": 40
+  },
+  "psl_runtime": {
+    "implementation": "pslpython==2.4.0",
+    "java_distribution": "temurin",
+    "java_version": "17",
+    "python_version": "3.10",
+    "random_seed": 7,
+    "jvm_options": [
+      "-Xms256m",
+      "-Xmx1536m"
+    ]
+  },
+  "direct_evidence_aliases": {
+    "direct_trace": [
+      "direct_trace_evidence",
+      "trace_parent_child_evidence",
+      "trace_parent_child_match",
+      "direct_evidence"
+    ],
+    "client_server": [
+      "client_server_evidence",
+      "client_server_span_evidence",
+      "span_kind_pair_evidence"
+    ],
+    "workload": [
+      "workload_evidence",
+      "workload_pair_evidence",
+      "source_destination_workload_evidence"
+    ]
+  },
+  "direct_rule_weights": {
+    "direct_trace": 10.0,
+    "client_server": 12.0,
+    "workload": 12.0,
+    "trace_client_server": 4.0,
+    "trace_workload": 4.0,
+    "client_server_workload": 5.0,
+    "all_direct": 8.0
+  },
+  "abstention_policy": {
+    "channel_truth_min": 0.9,
+    "psl_score_min": 0.9,
+    "minimum_direct_channels": 1
+  },
+  "gate": {
+    "direct_candidate_coverage_min": 0.001,
+    "direct_target_coverage_min": 0.001,
+    "confirmed_count_min": 1,
+    "confirmed_precision_lower_bound_min": 0.9,
+    "target_confirmation_recall_min": 0.5,
+    "unsupported_confirmation_max": 0,
+    "candidate_retention_min": 1.0
+  },
+  "claim_limit": "Development-only validation of an explicit direct-evidence confirmation and abstention mechanism for runtime CALLS candidates. A PASS would not establish causal CAUSES edges, production generalization, root-cause localization, RCA improvement, or LLM improvement. An INELIGIBLE result means the source lacks parent/child trace, CLIENT/SERVER span-kind, or workload-pair evidence required by the confirmation contract."
+}
