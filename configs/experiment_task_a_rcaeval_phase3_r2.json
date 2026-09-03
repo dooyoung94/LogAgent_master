@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcaeval-task-a-phase3-r2-operational-evidence",
+  "dataset_revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+  "protocol_status": {
+    "phase": "DEVELOPMENT_RETEST",
+    "confirmatory_holdout_required": true,
+    "reason": "The original six RCAEval incidents were inspected during A3 and A3-R1. This run tests the operational-evidence design and cannot by itself establish a final confirmatory A3 claim."
+  },
+  "source_contract": {
+    "dataset": "RCAEval RE2 TrainTicket",
+    "relation": "CALLS",
+    "required_incidents": 6,
+    "required_cells": 60,
+    "required_candidate_rows": 1250,
+    "required_seeds": [11, 17, 23, 31, 47],
+    "required_mask_ratios": [0.2, 0.4],
+    "required_trace_fields": [
+      "trace_id",
+      "span_id",
+      "parent_span_id",
+      "service_id",
+      "operation_name",
+      "method_name",
+      "start_time_us",
+      "end_time_us"
+    ]
+  },
+  "split_contract": {
+    "method": "sha256_case_order",
+    "calibration_incidents": 2,
+    "heldout_incidents": 4,
+    "calibration_cells": 20,
+    "heldout_cells": 40,
+    "selection_uses_evaluator_metrics": false
+  },
+  "evidence_contract": {
+    "model_visible_only": true,
+    "direct_fields_when_present": [
+      "span_kind",
+      "http_method",
+      "http_route",
+      "source_workload",
+      "destination_workload"
+    ],
+    "transparent_proxies_when_direct_fields_are_absent": [
+      "operation_name_and_method_name_HTTP_parser",
+      "normalized_endpoint_path",
+      "operation_token_overlap",
+      "operation_pair_concentration",
+      "operation_parent_child_role_prior_from_unmasked_spans",
+      "observed_CALLS_in_out_degree_role_proxy",
+      "forward_reverse_abduction_support_asymmetry"
+    ],
+    "forbidden_during_feature_scoring": [
+      "mask_target",
+      "silver_match",
+      "fault_label",
+      "root_cause_service",
+      "reference_graph"
+    ],
+    "nli_enabled": false,
+    "hard_veto": false
+  },
+  "policy_search": {
+    "profiles": [
+      "direction_role",
+      "operation_endpoint",
+      "method_route",
+      "combined"
+    ],
+    "retention_fractions": [0.8, 0.85, 0.9, 0.95],
+    "minimum_keep": [8, 10, 12, 14],
+    "evidence_weights": [0.1, 0.2, 0.3, 0.4, 0.5, 0.7],
+    "selection_order": [
+      "minimum_selected_count_mean",
+      "maximum_matched_budget_additive_gain",
+      "maximum_silver_precision_lower_bound_macro",
+      "maximum_mrr_macro",
+      "minimum_evidence_weight"
+    ]
+  },
+  "gate": {
+    "recall_macro_min": 0.95,
+    "recall_pooled_min": 0.95,
+    "recall_each_cell_min": 0.9,
+    "selected_count_ratio_max": 0.95,
+    "p_lb_delta_vs_full_min": 0.0,
+    "mrr_delta_vs_full_min": 0.0,
+    "matched_budget_recall_tolerance": 0.0,
+    "matched_budget_p_lb_delta_min": 0.0,
+    "matched_budget_mrr_delta_min": 0.0,
+    "additive_gain_min": 0.000001,
+    "boundary_alignment_macro_min": 0.95,
+    "operation_pair_coverage_min": 0.95
+  },
+  "execution": {
+    "max_workers": 2
+  },
+  "claim_limit": "Development-only Operation/HTTP/role-assisted CALLS candidate shortlisting on six previously inspected RCAEval TrainTicket incidents. A fresh independent incident set is required before a confirmatory A3 claim."
+}

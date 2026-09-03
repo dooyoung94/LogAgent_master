@@ -1,0 +1,282 @@
+name: Task A Phase 3-R3 Channel NLI
+
+on:
+  push:
+    branches:
+      - research/task-a-phase3-r3-channel-nli
+    paths:
+      - "runs/task_a_phase3_r3_request.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  SOURCE_R2_RUN_ID: "33699745124"
+  SOURCE_R2_HEAD_SHA: "1816eac463f24bc147b960eea94881d26fd3ae0e"
+  SOURCE_R2_ARTIFACT_NAME: "task-a-phase3-r2-1816eac463f24bc147b960eea94881d26fd3ae0e"
+  MODEL_DIR: data/models/nli-deberta-v3-small
+  R3_OUTPUT: outputs/task_a/phase3_r3
+
+jobs:
+  channel-nli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install full dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test,deberta]"
+
+      - name: Run complete regression suite
+        run: python -m pytest -q
+
+      - name: Resolve frozen R2 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs/r2
+          curl --fail --silent --show-error --location \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_R2_RUN_ID}/artifacts?per_page=100" \
+            --output inputs/r2/artifacts.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = json.loads(Path("inputs/r2/artifacts.json").read_text())
+          expected_name = os.environ["SOURCE_R2_ARTIFACT_NAME"]
+          expected_sha = os.environ["SOURCE_R2_HEAD_SHA"]
+          matches = [item for item in payload.get("artifacts", []) if item.get("name") == expected_name]
+          if len(matches) != 1:
+              raise SystemExit(f"expected exactly one frozen R2 artifact, found {len(matches)}")
+          artifact = matches[0]
+          if artifact.get("expired"):
+              raise SystemExit("frozen R2 artifact is expired")
+          workflow = artifact.get("workflow_run") or {}
+          if workflow.get("head_sha") != expected_sha:
+              raise SystemExit(
+                  f"R2 artifact head mismatch: expected={expected_sha} observed={workflow.get('head_sha')}"
+              )
+          digest = str(artifact.get("digest") or "")
+          if not digest.startswith("sha256:") or len(digest.removeprefix("sha256:")) != 64:
+              raise SystemExit(f"R2 artifact lacks a full SHA-256 digest: {digest}")
+          manifest = {
+              "run_id": int(os.environ["SOURCE_R2_RUN_ID"]),
+              "head_sha": expected_sha,
+              "artifact_id": int(artifact["id"]),
+              "artifact_name": artifact["name"],
+              "artifact_digest": digest,
+              "artifact_size_bytes": int(artifact["size_in_bytes"]),
+          }
+          Path("inputs/r2/source_manifest.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+          )
+          env_file = Path(os.environ["GITHUB_ENV"])
+          with env_file.open("a", encoding="utf-8") as stream:
+              stream.write(f"SOURCE_R2_ARTIFACT_ID={artifact['id']}\n")
+              stream.write(f"SOURCE_R2_ARTIFACT_SHA256={digest.removeprefix('sha256:')}\n")
+          print(json.dumps(manifest, indent=2, sort_keys=True))
+          PY
+
+      - name: Download and verify frozen R2 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail --silent --show-error --location \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${SOURCE_R2_ARTIFACT_ID}/zip" \
+            --output inputs/r2/source.zip
+          echo "${SOURCE_R2_ARTIFACT_SHA256}  inputs/r2/source.zip" | sha256sum --check
+          unzip -q inputs/r2/source.zip -d inputs/r2/unpacked
+
+      - name: Verify R2 scientific result and R3 handoff
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          roots = list(Path("inputs/r2/unpacked").rglob("task_a_phase3_r2_results.json"))
+          analyses = list(Path("inputs/r2/unpacked").rglob("all_candidate_analysis.parquet"))
+          analyses = [p for p in analyses if "phase3_r2" in str(p)]
+          if len(roots) != 1 or len(analyses) != 1:
+              raise SystemExit(
+                  f"invalid R2 artifact layout: results={len(roots)} analyses={len(analyses)}"
+              )
+          result = json.loads(roots[0].read_text(encoding="utf-8"))
+          frame = pd.read_parquet(analyses[0])
+          required = {
+              "incident_token", "seed", "mask_id", "mask_ratio",
+              "subject", "predicate", "object", "a2_score", "proposal_rank",
+              "direct_evidence", "direction_role_rank_normalized",
+              "operation_endpoint_rank_normalized", "method_route_rank_normalized",
+              "combined_rank_normalized", "representative_parent_operation",
+              "representative_child_operation", "case", "fault", "role",
+              "is_masked_target", "is_silver_matched",
+          }
+          missing = required - set(frame.columns)
+          if missing:
+              raise SystemExit(f"R3 handoff missing columns: {sorted(missing)}")
+          if len(frame) != 1250:
+              raise SystemExit(f"R3 handoff requires 1,250 candidates, found {len(frame)}")
+          if frame.groupby(["incident_token", "seed", "mask_id"]).ngroups != 60:
+              raise SystemExit("R3 handoff requires 60 cells")
+          if frame["incident_token"].nunique() != 6:
+              raise SystemExit("R3 handoff requires six opaque incidents")
+          if frame["incident_token"].astype(str).str.contains(
+              "auth|travel|order|cpu|mem|disk|delay|loss|socket", case=False, regex=True
+          ).any():
+              raise SystemExit("incident token contains case or fault semantics")
+          if set(frame["role"].astype(str)) != {"calibration", "heldout"}:
+              raise SystemExit("frozen calibration/heldout split is missing")
+          Path("inputs/r2/candidate_analysis_path.txt").write_text(str(analyses[0]))
+          Path("inputs/r2/r2_result_compact.json").write_text(
+              json.dumps(
+                  {
+                      "status": result["status"],
+                      "gate": result["gate"],
+                      "selected_policy": result["selected_policy"],
+                      "feature_diagnostics": result["feature_diagnostics"],
+                  },
+                  indent=2,
+                  sort_keys=True,
+              ) + "\n"
+          )
+          print(
+              f"R3_HANDOFF_READY rows={len(frame)} cells=60 incidents=6 r2_status={result['status']}"
+          )
+          PY
+
+      - name: Restore frozen DeBERTa model
+        id: model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.MODEL_DIR }}
+          key: deberta-v3-small-fa280487-03c2221313dc0c3e
+
+      - name: Prepare frozen DeBERTa model on cache miss
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: python tools/prepare_deberta_model.py --dest "${MODEL_DIR}"
+
+      - name: Save frozen DeBERTa model on cache miss
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.MODEL_DIR }}
+          key: ${{ steps.model-cache.outputs.cache-primary-key }}
+
+      - name: Verify frozen DeBERTa model
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("data/models/nli-deberta-v3-small/.logagent-model.json")
+          manifest = json.loads(path.read_text(encoding="utf-8"))
+          assert manifest["revision"] == "fa2804872c3b4bd748f38c0185cc85775361e735"
+          assert manifest["onnx_sha256"] == "03c2221313dc0c3eac9cec1f746d1319d33f2c2901fcce1c0f08f4daac9b6dae"
+          assert manifest["local_files_only"] is True
+          print("DEBERTA_MODEL_CONTRACT_PASS")
+          PY
+
+      - name: Run channel-specific DeBERTa validation
+        id: experiment
+        shell: bash
+        run: |
+          set +e
+          ANALYSIS=$(cat inputs/r2/candidate_analysis_path.txt)
+          mkdir -p outputs/task_a
+          python tools/run_task_a_phase3_r3.py \
+            --config configs/experiment_task_a_rcaeval_phase3_r3.json \
+            --candidate-analysis "$ANALYSIS" \
+            --model-dir "${MODEL_DIR}" \
+            --output "${R3_OUTPUT}" \
+            2>&1 | tee outputs/task_a/phase3-r3-execution.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Attach source provenance
+        if: always()
+        run: |
+          if test -d "${R3_OUTPUT}"; then
+            cp inputs/r2/source_manifest.json "${R3_OUTPUT}/source_r2_artifact_manifest.json"
+            cp inputs/r2/r2_result_compact.json "${R3_OUTPUT}/source_r2_result_compact.json"
+          fi
+
+      - name: Print compact R3 result
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("outputs/task_a/phase3_r3/published/task_a_phase3_r3_results.json")
+          if not path.exists():
+              raise SystemExit("A3-R3 result was not created")
+          summary = json.loads(path.read_text(encoding="utf-8"))
+          held = summary["heldout"]
+          compact = {
+              "status": summary["status"],
+              "selected_policy": summary["selected_policy"],
+              "channel_coverage": summary["nli_diagnostics"]["channel_candidate_coverage"],
+              "tri_state_counts": summary["nli_diagnostics"]["tri_state_counts"],
+              "baseline_a2_full": held["baseline_a2_full"],
+              "proposed_a3_r3": held["proposed_a3_r3"],
+              "delta_vs_equal_size_operational": held["delta_vs_equal_size_operational"],
+              "delta_vs_equal_size_a2": held["delta_vs_equal_size_a2"],
+              "gate": summary["gate"],
+          }
+          print("TASK_A_PHASE3_R3_COMPACT_START")
+          print(json.dumps(compact, ensure_ascii=False, indent=2, sort_keys=True))
+          print("TASK_A_PHASE3_R3_COMPACT_END")
+          PY
+
+      - name: Upload complete R3 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-a-phase3-r3-${{ github.sha }}
+          path: |
+            outputs/task_a/phase3_r3
+            outputs/task_a/phase3-r3-execution.log
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce R3 scientific gate
+        if: always()
+        run: |
+          test "${{ steps.experiment.outputs.exit_code }}" = "0"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary = json.loads(
+              Path("outputs/task_a/phase3_r3/published/task_a_phase3_r3_results.json")
+              .read_text(encoding="utf-8")
+          )
+          if not summary["gate"]["passed"]:
+              raise SystemExit(
+                  "D4C failed: " + ", ".join(summary["gate"]["reason_codes"])
+              )
+          if not summary["protocol_status"]["confirmatory_holdout_required"]:
+              raise SystemExit("fresh independent incidents must remain required")
+          print("D4C_A3_R3_CHANNEL_NLI_ADDITIVE_UTILITY: PASS")
+          PY

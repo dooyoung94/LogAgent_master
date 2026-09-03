@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcaeval-task-a-phase3-r3-channel-nli",
+  "protocol_status": {
+    "phase": "DEVELOPMENT_RETEST",
+    "confirmatory_holdout_required": true,
+    "reason": "The six RCAEval incidents were inspected during A3, A3-R1, and A3-R2. R3 tests channel-specific NLI design only; a fresh independent incident set is required for a confirmatory claim."
+  },
+  "source_contract": {
+    "dataset": "RCAEval RE2 TrainTicket",
+    "relation": "CALLS",
+    "required_candidate_rows": 1250,
+    "required_cells": 60,
+    "required_incidents": 6,
+    "required_seeds": [11, 17, 23, 31, 47],
+    "required_mask_ratios": [0.2, 0.4],
+    "source_stage": "A3-R2 all-candidate operational evidence handoff"
+  },
+  "split_contract": {
+    "calibration_incidents": 2,
+    "heldout_incidents": 4,
+    "calibration_cells": 20,
+    "heldout_cells": 40,
+    "reuse_frozen_r2_split": true
+  },
+  "model": {
+    "repo_id": "cross-encoder/nli-deberta-v3-small",
+    "revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "onnx_filename": "onnx/model_quint8_avx2.onnx",
+    "onnx_sha256": "03c2221313dc0c3eac9cec1f746d1319d33f2c2901fcce1c0f08f4daac9b6dae",
+    "batch_size": 1,
+    "performance_mode": false,
+    "max_length": 512,
+    "local_files_only": true,
+    "anonymous_service_placeholders": true
+  },
+  "evidence_contract": {
+    "independent_channels": ["direction", "operation", "http", "role"],
+    "single_composite_premise_forbidden": true,
+    "hard_veto": false,
+    "tri_state_role": "diagnostic_only",
+    "continuous_nli_scores_used_for_ranking": true,
+    "a2_prior_minimum_weight": 0.2,
+    "forbidden_during_nli_scoring": [
+      "case",
+      "fault",
+      "role",
+      "is_masked_target",
+      "is_silver_matched",
+      "root_cause_service",
+      "reference_graph"
+    ]
+  },
+  "tri_state": {
+    "corroborate_entailment_min": 0.4,
+    "contradict_probability_min": 0.6,
+    "direction_margin_min": 0.03,
+    "label_margin_min": -0.05
+  },
+  "policy_search": {
+    "operational_profiles": [
+      "direction_role",
+      "operation_endpoint",
+      "method_route",
+      "combined"
+    ],
+    "nli_profiles": [
+      "direction_operation",
+      "operation_http",
+      "direction_role",
+      "all_available"
+    ],
+    "retention_fractions": [0.85, 0.9, 0.95],
+    "minimum_keep": [8, 10, 12],
+    "operational_weights": [0.1, 0.2, 0.3],
+    "nli_weights": [0.05, 0.1, 0.2],
+    "selection_order": [
+      "minimum_selected_count_mean",
+      "maximum_nli_additive_gain",
+      "maximum_silver_precision_lower_bound_macro",
+      "maximum_mrr_macro",
+      "minimum_nli_weight"
+    ]
+  },
+  "gate": {
+    "recall_macro_min": 0.95,
+    "recall_pooled_min": 0.95,
+    "recall_each_cell_min": 0.9,
+    "selected_count_ratio_max": 0.95,
+    "p_lb_delta_vs_full_min": 0.0,
+    "mrr_delta_vs_full_min": 0.0,
+    "matched_operational_recall_tolerance": 0.0,
+    "matched_operational_p_lb_delta_min": 0.0,
+    "matched_operational_mrr_delta_min": 0.0,
+    "matched_a2_recall_tolerance": 0.0,
+    "matched_a2_p_lb_delta_min": 0.0,
+    "matched_a2_mrr_delta_min": 0.0,
+    "nli_additive_gain_min": 0.000001,
+    "scored_candidate_coverage_min": 1.0,
+    "nli_score_std_min": 0.00001
+  },
+  "controls": {
+    "full_a2": true,
+    "equal_size_a2": true,
+    "equal_size_operational_only": true,
+    "purpose": "Separate NLI utility from A2 prior, operational evidence, and shortlist-size effects."
+  },
+  "claim_limit": "Development-only channel-specific DeBERTa evidence for CALLS candidate reranking on six previously inspected RCAEval TrainTicket incidents. No causal-edge, RCA, LLM, or production-generalization claim."
+}

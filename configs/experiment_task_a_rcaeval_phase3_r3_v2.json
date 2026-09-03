@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcaeval-task-a-phase3-r3-channel-nli-v2",
+  "dataset_revision": "afeacb11bcc94dadfd1c8f483ee4377b2b8b614e",
+  "protocol_status": {
+    "phase": "DEVELOPMENT_RETEST",
+    "confirmatory_holdout_required": true,
+    "reason": "The six RCAEval incidents and prior A3 held-out results have already been inspected. This experiment may diagnose and improve the method but cannot serve as the final confirmatory test."
+  },
+  "source_contract": {
+    "dataset": "RCAEval RE2 TrainTicket",
+    "relation": "CALLS",
+    "required_incidents": 6,
+    "required_cells": 60,
+    "required_candidate_rows": 1250,
+    "required_seeds": [11, 17, 23, 31, 47],
+    "required_mask_ratios": [0.2, 0.4]
+  },
+  "split_contract": {
+    "method": "sha256_case_order",
+    "calibration_incidents": 2,
+    "heldout_incidents": 4,
+    "calibration_cells": 20,
+    "heldout_cells": 40
+  },
+  "backend": {
+    "model_id": "cross-encoder/nli-deberta-v3-small",
+    "revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "onnx_file": "onnx/model_quint8_avx2.onnx",
+    "onnx_sha256": "03c2221313dc0c3eac9cec1f746d1319d33f2c2901fcce1c0f08f4daac9b6dae",
+    "batch_size": 1,
+    "max_length": 512,
+    "offline_required": true
+  },
+  "tri_state": {
+    "corroborate_entailment_min": 0.45,
+    "contradict_probability_min": 0.65,
+    "evidence_margin_min": 0.05,
+    "contradiction_margin_min": 0.1
+  },
+  "channel_weights": {
+    "trace": 0.35,
+    "operation": 0.3,
+    "http": 0.2,
+    "role": 0.15
+  },
+  "policy_search": {
+    "retention_fractions": [0.8, 0.85, 0.9, 0.95],
+    "minimum_keep": [8, 10, 12, 14],
+    "operational_weights": [0.0, 0.1, 0.2, 0.3],
+    "nli_weights": [0.1, 0.2, 0.3, 0.4],
+    "maximum_auxiliary_weight": 0.8,
+    "selection_order": [
+      "feasible_first",
+      "minimum_candidate_count",
+      "maximum_additive_gain_over_equal_size_r2",
+      "maximum_p_lb",
+      "maximum_mrr",
+      "minimum_nli_weight"
+    ]
+  },
+  "gate": {
+    "recall_macro_min": 0.95,
+    "recall_pooled_min": 0.95,
+    "recall_each_cell_min": 0.9,
+    "selected_count_ratio_max": 0.95,
+    "p_lb_delta_vs_full_min": 0.0,
+    "mrr_delta_vs_full_min": 0.0,
+    "matched_a2_recall_tolerance": 0.0,
+    "matched_a2_p_lb_delta_min": 0.0,
+    "matched_a2_mrr_delta_min": 0.0,
+    "matched_r2_recall_tolerance": 0.0,
+    "matched_r2_p_lb_delta_min": 0.0,
+    "matched_r2_mrr_delta_min": 0.0,
+    "nli_additive_gain_min": 0.000001,
+    "nli_candidate_coverage_min": 0.95,
+    "nli_score_std_min": 0.000001
+  },
+  "execution": {
+    "max_workers": 2,
+    "publish_negative_results": true,
+    "scientific_gate_blocks_artifact_publication": false
+  },
+  "claim_limit": "Development-only evidence-channel NLI reranking of runtime CALLS candidates; fresh incidents or another system are required for confirmatory validation."
+}

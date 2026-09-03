@@ -1,0 +1,261 @@
+name: Task A Phase 3-R2 Operational Evidence
+
+on:
+  push:
+    branches:
+      - research/task-a-phase3-r2-operational-evidence
+    paths:
+      - ".github/workflows/task-a-phase3-r2.yml"
+      - "configs/experiment_task_a_rcaeval_phase3_r2.json"
+      - "src/logagent_benchmark/task_a_phase3_r2.py"
+      - "src/logagent_benchmark/task_a_phase3_r2_compat.py"
+      - "tools/run_task_a_phase3_r2.py"
+      - "tests/test_task_a_phase3_r2.py"
+      - "tests/test_task_a_phase3_r2_compat.py"
+      - "docs/task_a_phase3_r2_operational_evidence.md"
+      - "src/logagent_benchmark/cli_v2.py"
+      - "src/logagent_benchmark/task_a.py"
+      - "src/logagent_benchmark/task_a_phase2.py"
+      - "tools/run_task_a_phase2.py"
+  pull_request:
+    branches:
+      - research/reference-matrix-readiness
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PHASE2_ROOT: outputs/task_a/phase2_structural_source
+  R2_OUTPUT: outputs/task_a/phase3_r2
+
+concurrency:
+  group: task-a-phase3-r2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  operational-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and data client
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+          python -m pip install "huggingface-hub>=0.26,<1"
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Restore heavy Phase 2 source
+        id: phase2-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.PHASE2_ROOT }}
+          key: >-
+            task-a-phase2-r2-heavy-${{
+              hashFiles(
+                'configs/experiment_task_a_rcaeval.json',
+                'configs/experiment_task_a_rcaeval_phase2.json',
+                'src/logagent_benchmark/cli_task_a.py',
+                'src/logagent_benchmark/cli_v2.py',
+                'src/logagent_benchmark/graph.py',
+                'src/logagent_benchmark/masking.py',
+                'src/logagent_benchmark/metrics.py',
+                'src/logagent_benchmark/rcaeval.py',
+                'src/logagent_benchmark/recovery.py',
+                'src/logagent_benchmark/task_a.py',
+                'src/logagent_benchmark/task_a_phase2.py',
+                'tools/run_task_a.py',
+                'tools/run_task_a_phase2.py'
+              )
+            }}
+          restore-keys: |
+            task-a-phase2-r2-heavy-
+            task-a-phase2-structural-heavy-
+
+      - name: Prepare deterministic RCAEval subset on cache miss
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
+        run: |
+          python tools/prepare_task_a_phase2_data.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --dest data/raw/rcaeval/phase2
+
+      - name: Reproduce frozen A2 with heavy sanitized traces on cache miss
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
+        run: |
+          python tools/run_task_a_phase2.py \
+            --config configs/experiment_task_a_rcaeval_phase2.json \
+            --raw-root data/raw/rcaeval/phase2 \
+            --output "${PHASE2_ROOT}" \
+            --max-workers 2 \
+            --keep-heavy-artifacts
+
+      - name: Save heavy Phase 2 source on cache miss
+        if: steps.phase2-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.PHASE2_ROOT }}
+          key: ${{ steps.phase2-cache.outputs.cache-primary-key }}
+
+      - name: Verify frozen A2 operational handoff
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path("outputs/task_a/phase2_structural_source")
+          summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
+          if not summary["gate"]["passed"]:
+              raise SystemExit("Phase-2 D3 gate did not pass")
+          cells = pd.read_csv(root / "cells.csv")
+          if len(cells) != 60 or cells["case"].nunique() != 6:
+              raise SystemExit("Phase-2 grid differs from R2 contract")
+          if int(cells["a2_proposal_count"].sum()) != 1250:
+              raise SystemExit("A2 candidate handoff differs from 1,250 rows")
+          traces = sorted(root.glob("runs/*/seed-*/masks/*/model_input/traces.parquet"))
+          a2 = sorted(root.glob("runs/*/seed-*/masks/*/predictions/A2.parquet"))
+          observed = sorted(root.glob("runs/*/seed-*/masks/*/model_input/observed_edges.parquet"))
+          if len(traces) != 60 or len(a2) != 60 or len(observed) != 60:
+              raise SystemExit(
+                  f"missing heavy handoff: traces={len(traces)} a2={len(a2)} observed={len(observed)}"
+              )
+          required = {
+              "trace_id", "span_id", "parent_span_id", "service_id",
+              "operation_name", "method_name", "start_time_us", "end_time_us",
+          }
+          for path in traces:
+              missing = required - set(pd.read_parquet(path).columns)
+              if missing:
+                  raise SystemExit(f"{path} missing {sorted(missing)}")
+          print("A3_R2_HANDOFF_READY cells=60 candidates=1250 traces=60")
+          PY
+
+      - name: Run Operation HTTP Role evidence validation
+        id: experiment
+        shell: bash
+        run: |
+          set +e
+          mkdir -p outputs/task_a
+          python tools/run_task_a_phase3_r2.py \
+            --config configs/experiment_task_a_rcaeval_phase3_r2.json \
+            --phase2-root "${PHASE2_ROOT}" \
+            --output "${R2_OUTPUT}" \
+            --max-workers 2 \
+            2>&1 | tee outputs/task_a/phase3-r2-execution.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Verify opaque all-candidate R3 handoff
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path("outputs/task_a/phase3_r2")
+          model_path = root / "model_output" / "a3_r2_operational_features.parquet"
+          private_path = root / "evaluator_private" / "all_candidate_analysis.parquet"
+          token_path = root / "evaluator_private" / "incident_token_manifest.json"
+          if not model_path.is_file() or not private_path.is_file() or not token_path.is_file():
+              raise SystemExit("R2 did not materialize the R3 handoff")
+          model = pd.read_parquet(model_path)
+          private = pd.read_parquet(private_path)
+          if len(model) != 1250 or len(private) != 1250:
+              raise SystemExit(f"R3 handoff row count changed: model={len(model)} private={len(private)}")
+          required_model = {
+              "incident_token", "seed", "mask_id", "subject", "predicate", "object",
+              "representative_parent_operation", "representative_child_operation",
+              "direction_role_raw", "operation_endpoint_raw", "method_route_raw", "combined_raw",
+          }
+          missing = required_model - set(model.columns)
+          if missing:
+              raise SystemExit(f"R3 model handoff missing columns: {sorted(missing)}")
+          forbidden = {"case", "fault", "role", "is_masked_target", "is_silver_matched"}
+          leaked = forbidden & set(model.columns)
+          if leaked:
+              raise SystemExit(f"evaluator fields leaked into model handoff: {sorted(leaked)}")
+          if not forbidden.issubset(private.columns):
+              raise SystemExit("evaluator-private handoff is missing labels")
+          if model["incident_token"].astype(str).str.contains("auth|travel|order|cpu|mem|disk", case=False, regex=True).any():
+              raise SystemExit("opaque incident token contains case semantics")
+          print("A3_R3_HANDOFF_READY candidates=1250 cells=60")
+          PY
+
+      - name: Print compact R2 result
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("outputs/task_a/phase3_r2/published/task_a_phase3_r2_results.json")
+          if not path.exists():
+              raise SystemExit("A3-R2 result was not created")
+          summary = json.loads(path.read_text(encoding="utf-8"))
+          heldout = summary["heldout"]
+          compact = {
+              "status": summary["status"],
+              "protocol_status": summary["protocol_status"],
+              "selected_policy": summary["selected_policy"],
+              "feature_diagnostics": summary["feature_diagnostics"],
+              "calibration": {
+                  "feasible": summary["calibration"]["feasible"],
+                  "feasible_policy_count": summary["calibration"]["feasible_policy_count"],
+                  "searched_policy_count": summary["calibration"]["searched_policy_count"],
+              },
+              "baseline": heldout["baseline_a2_full"],
+              "proposed": heldout["proposed_a3_r2"],
+              "delta_vs_equal_size_a2": heldout["delta_vs_equal_size_a2"],
+              "gate": summary["gate"],
+          }
+          print("TASK_A_PHASE3_R2_COMPACT_START")
+          print(json.dumps(compact, ensure_ascii=False, indent=2, sort_keys=True))
+          print("TASK_A_PHASE3_R2_COMPACT_END")
+          PY
+
+      - name: Upload complete R2 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-a-phase3-r2-${{ github.sha }}
+          path: |
+            outputs/task_a/phase3_r2
+            outputs/task_a/phase3-r2-execution.log
+            outputs/task_a/phase2_structural_source/summary.json
+            outputs/task_a/phase2_structural_source/cells.csv
+            outputs/task_a/phase2_structural_source/selected_cases.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce development scientific gate
+        if: always()
+        run: |
+          test "${{ steps.experiment.outputs.exit_code }}" = "0"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary = json.loads(
+              Path("outputs/task_a/phase3_r2/published/task_a_phase3_r2_results.json")
+              .read_text(encoding="utf-8")
+          )
+          if not summary["gate"]["passed"]:
+              raise SystemExit(
+                  "D4B failed: " + ", ".join(summary["gate"]["reason_codes"])
+              )
+          if not summary["protocol_status"]["confirmatory_holdout_required"]:
+              raise SystemExit("fresh confirmatory holdout must remain required")
+          print("D4B_A3_R2_OPERATIONAL_EVIDENCE_DEVELOPMENT: PASS")
+          PY
