@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
+from logagent_benchmark.onnx_deberta import PairCacheInfo
 from logagent_benchmark.task_a_phase3_r3_channel_v2 import (
     EVALUATOR_COLUMNS,
     GateConfig,
@@ -50,7 +51,7 @@ class DummyBackend:
         }
 
     def cache_info(self):
-        return SimpleNamespace(hits=0, misses=0, size=0, inference_batches=0)
+        return PairCacheInfo(hits=0, misses=0, size=0, inference_batches=0)
 
 
 def candidate(object_id: str, rank: int, *, target=False, silver=False, direct=False):
