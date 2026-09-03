@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcabench-ops-lite-task-a-r3-independent-confirmatory",
+  "protocol_status": {
+    "phase": "INDEPENDENT_CONFIRMATORY",
+    "policy_tuning_allowed": false,
+    "case_replacement_allowed": false,
+    "reason": "All cases are selected from the official pinned RCABench OPS-Lite test split before telemetry inspection; the RCAEval R3 policy is applied without modification."
+  },
+  "dataset": {
+    "repo_id": "anon-ops/ops-lite",
+    "repo_type": "dataset",
+    "revision": "9ac09981c08ab02a0b923eab7830d778934851a8",
+    "manifest_path": "manifest.jsonl",
+    "manifest_sha256": "5d4d3960446408a6e43ea87c51a255aa7a39d43a1db6aeb731cf20b18f4fb7cd",
+    "leaderboard_repo": "OperationsPAI/rcabench-leaderboard",
+    "leaderboard_commit": "8eae8ca62d425437f010f78afde0a4e7606e6da6",
+    "test_split_path": "config/splits/ops-lite-seed42-test.txt",
+    "test_split_sha256": "f129fe8414985ac35b16aa0c22c4afe8d1ae132c9e16b46681ae009a7d178280",
+    "expected_manifest_cases": 500,
+    "expected_test_cases": 100
+  },
+  "selection_contract": {
+    "method": "system_stratified_sha256_after_structural_eligibility",
+    "hash_material": "dataset_revision|independent-confirmatory-v1|case_id",
+    "structural_eligibility": {
+      "n_svc_min": 5,
+      "n_edge_min": 5
+    },
+    "selected_case_ids_sha256": "f881f2018fcf4dd5455cd7bea3d2a84f6f8091283c8924b215fc16e96bcc8bc6",
+    "selected_cases": [
+      {"case_id": "ts2-ts-order-other-service-container-kill-48rlds", "system": "ts"},
+      {"case_id": "ts9-ts-order-service-container-kill-bsh6lx", "system": "ts"},
+      {"case_id": "batch-01KQJWSGJ099M4CZYEP916XDZ4", "system": "ts"},
+      {"case_id": "ts3-ts-travel-service-response-delay-7c9494", "system": "ts"},
+      {"case_id": "hs1-frontend-delay-qhklld", "system": "hs"},
+      {"case_id": "hs7-geo-pod-failure-fpxsqz", "system": "hs"},
+      {"case_id": "otel-demo3-product-catalog-pod-failure-kp7pdt", "system": "otel-demo"},
+      {"case_id": "batch-01KQKYZVMC7JPGSX5S16TABEVF", "system": "otel-demo"}
+    ]
+  },
+  "trace_contract": {
+    "signals": ["normal_traces", "abnormal_traces"],
+    "phase_prefix_ids": true,
+    "time_unit": "datetime_to_microseconds",
+    "duration_input_unit": "nanoseconds",
+    "reference_ratio": 0.4,
+    "dataset_id": "rcabench-ops-lite"
+  },
+  "mask_contract": {
+    "kind": "iid_parent_dropped",
+    "ratios": [0.2, 0.4],
+    "seeds": [101, 211, 307],
+    "expected_cells": 48
+  },
+  "a2_contract": {
+    "a2_threshold": 0.6,
+    "include_null_parent": true,
+    "max_abductive_proposals": 32,
+    "max_per_subject": 8,
+    "max_per_object": 8,
+    "min_supporting_traces": 1,
+    "min_boundary_count": 1
+  },
+  "frozen_policy_path": "configs/frozen/task_a_phase3_r3_policy.json",
+  "gate": {
+    "all_selected_incidents_ready": true,
+    "all_expected_cells_ready": true,
+    "required_systems": ["ts", "hs", "otel-demo"],
+    "a2_candidate_recall_macro_min": 0.95,
+    "a2_candidate_recall_each_cell_min": 0.9,
+    "r3_recall_macro_min": 0.95,
+    "r3_recall_pooled_min": 0.95,
+    "r3_recall_each_cell_min": 0.9,
+    "selected_count_ratio_max": 0.95,
+    "p_lb_delta_vs_full_a2_min": 0.0,
+    "mrr_delta_vs_full_a2_min": -0.01,
+    "matched_a2_recall_tolerance": 0.0,
+    "matched_a2_p_lb_delta_min": 0.0,
+    "matched_a2_mrr_delta_min": 0.0,
+    "matched_r2_recall_tolerance": 0.0,
+    "matched_r2_p_lb_delta_min": 0.0,
+    "matched_r2_mrr_delta_min": 0.0,
+    "nli_additive_gain_min": 0.000001,
+    "paired_bootstrap_lower_bound_min": 0.0,
+    "nli_candidate_coverage_min": 0.95,
+    "nli_score_std_min": 0.000001
+  },
+  "statistics": {
+    "paired_bootstrap_samples": 10000,
+    "paired_bootstrap_seed": 20260903,
+    "confidence_level": 0.95
+  },
+  "claim_limit": "External confirmation of frozen CALLS-candidate reranking only. It does not validate causal CAUSES edges, downstream RCA, LLM improvement, or production-scale deployment."
+}
