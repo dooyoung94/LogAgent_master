@@ -8,6 +8,7 @@ from logagent_benchmark.task_a_phase3_r2 import Phase3R2Error
 from logagent_benchmark.task_a_phase3_r2_compat import (
     decode_edge_key,
     evaluator_flags,
+    incident_token,
 )
 
 
@@ -35,6 +36,15 @@ def test_decode_edge_key_rejects_invalid_shapes():
         )
     with pytest.raises(Phase3R2Error):
         decode_edge_key("svc-a|CALLS|svc-b", field_name="string")
+
+
+def test_incident_token_is_stable_opaque_and_case_specific():
+    first = incident_token("re2tt_ts-auth-service_cpu_2")
+    assert first == incident_token("re2tt_ts-auth-service_cpu_2")
+    assert first != incident_token("re2tt_ts-order-service_disk_3")
+    assert first.startswith("incident:")
+    assert "auth" not in first
+    assert "cpu" not in first
 
 
 def test_evaluator_flags_reads_phase2_array_serialization(tmp_path):
