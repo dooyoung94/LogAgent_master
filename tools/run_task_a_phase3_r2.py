@@ -13,7 +13,9 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from logagent_benchmark.task_a_phase3_r2 import run_phase3_r2  # noqa: E402
+from logagent_benchmark.task_a_phase3_r2_compat import (  # noqa: E402
+    run_phase3_r2,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
