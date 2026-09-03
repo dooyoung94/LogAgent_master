@@ -1,0 +1,42 @@
+name: OPS-Lite R3 Confirmatory Unit Validation
+
+on:
+  push:
+    branches:
+      - research/rcabench-ops-lite-r3-confirmatory
+    paths:
+      - ".github/workflows/ops-lite-r3-confirmatory-unit.yml"
+      - "configs/experiment_task_a_ops_lite_r3_confirmatory.json"
+      - "src/logagent_benchmark/ops_lite_r3_confirmatory.py"
+      - "tools/prepare_ops_lite_confirmatory.py"
+      - "tools/run_ops_lite_r3_confirmatory.py"
+      - "tests/test_ops_lite_r3_confirmatory.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+      - name: Compile confirmatory modules
+        run: |
+          python -m py_compile \
+            src/logagent_benchmark/ops_lite_r3_confirmatory.py \
+            tools/prepare_ops_lite_confirmatory.py \
+            tools/run_ops_lite_r3_confirmatory.py
+      - name: Run full repository tests
+        run: python -m pytest -q
+      - name: Validate frozen experiment JSON
+        run: python -m json.tool configs/experiment_task_a_ops_lite_r3_confirmatory.json >/dev/null
