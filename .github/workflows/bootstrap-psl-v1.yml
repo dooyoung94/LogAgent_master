@@ -6,7 +6,7 @@ on:
       - research/task-a-phase4-psl-v1
     paths:
       - ".github/workflows/bootstrap-psl-v1.yml"
-      - ".bootstrap/psl_v1_payload.b64"
+      - ".bootstrap/psl_v1_payload.part-*"
   workflow_dispatch:
 
 permissions:
@@ -22,9 +22,18 @@ jobs:
         with:
           ref: research/task-a-phase4-psl-v1
 
-      - name: Decode and verify implementation payload
+      - name: Reassemble, decode and verify implementation payload
         run: |
-          base64 --decode .bootstrap/psl_v1_payload.b64 > /tmp/psl-v1.tar.gz
+          cat \
+            .bootstrap/psl_v1_payload.part-00 \
+            .bootstrap/psl_v1_payload.part-01 \
+            .bootstrap/psl_v1_payload.part-02 \
+            .bootstrap/psl_v1_payload.part-03a \
+            .bootstrap/psl_v1_payload.part-03b \
+            .bootstrap/psl_v1_payload.part-04 \
+            > /tmp/psl-v1.b64
+          echo "64181affd007d1198ab4f126924aa8aff4328d6e9a65e10d1d60fd1296d72441  /tmp/psl-v1.b64" | sha256sum --check
+          base64 --decode /tmp/psl-v1.b64 > /tmp/psl-v1.tar.gz
           echo "c73038b5e259e24b18af1888556f8d15012ab5f17872fb2304edf97419f231a7  /tmp/psl-v1.tar.gz" | sha256sum --check
           tar -xzf /tmp/psl-v1.tar.gz -C .
           python -m py_compile \
