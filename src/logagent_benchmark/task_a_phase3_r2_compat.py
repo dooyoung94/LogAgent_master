@@ -1,16 +1,20 @@
-"""Compatibility wrapper for A3-R2 evaluator edge serialization.
+"""Compatibility and handoff wrapper for Task A Phase 3-R2.
 
 Phase-2 evaluator artifacts can encode a relation triple either as a mapping
 (``{"subject": ..., "predicate": ..., "object": ...}``) or as a JSON array
 (``[subject, predicate, object]``).  The original R2 reader assumed mappings
-only and failed before any scientific metric was produced.  This wrapper keeps
-model-side feature computation unchanged and replaces only the evaluator-side
-artifact decoder while R2 is executed.
+only and failed before any scientific metric was produced.
+
+The wrapper also adds an opaque incident token to model-visible output and
+materializes one evaluator-private all-candidate table.  This avoids repeating
+the expensive trace feature extraction when the next evidence-specific NLI
+stage is executed.  Raw case/fault labels remain evaluator-private.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -21,6 +25,7 @@ from . import task_a_phase3_r2 as _impl
 
 
 EdgeKey = tuple[str, str, str]
+CANDIDATE_KEY = ("subject", "predicate", "object")
 
 
 def decode_edge_key(item: Any, *, field_name: str) -> EdgeKey:
@@ -130,20 +135,147 @@ def evaluator_flags(
     )
 
 
-def run_phase3_r2(**kwargs: Any) -> Path:
-    """Execute R2 with the serialization-compatible evaluator reader."""
+def incident_token(case_id: Any) -> str:
+    """Return a stable opaque case identifier safe for model-side joins."""
 
-    original = _impl._evaluator_flags
+    digest = hashlib.sha256(f"task-a-r2|{case_id}".encode("utf-8")).hexdigest()
+    return f"incident:{digest[:24]}"
+
+
+def _materialize_all_candidate_analysis(
+    *, output: Path, phase2_root: Path
+) -> None:
+    """Join frozen model features to evaluator flags without recomputing traces."""
+
+    model_path = output / "model_output" / "a3_r2_operational_features.parquet"
+    summary_path = output / "published" / "task_a_phase3_r2_results.json"
+    if not model_path.is_file() or not summary_path.is_file():
+        raise _impl.Phase3R2Error("R2 output is incomplete for the NLI handoff")
+
+    model = pd.read_parquet(model_path)
+    required_model = {
+        "incident_token",
+        "seed",
+        "mask_id",
+        *CANDIDATE_KEY,
+    }
+    missing = sorted(required_model.difference(model.columns))
+    if missing:
+        raise _impl.Phase3R2Error(
+            f"R2 model output lacks handoff columns: {missing}"
+        )
+
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    calibration_cases = set(summary["split"]["calibration_cases"])
+    heldout_cases = set(summary["split"]["heldout_cases"])
+    cells = pd.read_csv(phase2_root / "cells.csv")
+    records: list[pd.DataFrame] = []
+    token_manifest: list[dict[str, Any]] = []
+
+    for row in cells.to_dict(orient="records"):
+        case_id = str(row["case"])
+        token = incident_token(case_id)
+        subset = model.loc[
+            model["incident_token"].astype(str).eq(token)
+            & pd.to_numeric(model["seed"], errors="raise").eq(int(row["seed"]))
+            & model["mask_id"].astype(str).eq(str(row["mask_id"]))
+        ].copy()
+        if len(subset) != int(row["a2_proposal_count"]):
+            raise _impl.Phase3R2Error(
+                "R2 handoff candidate count mismatch for "
+                f"{case_id} seed={row['seed']} mask={row['mask_id']}: "
+                f"expected={row['a2_proposal_count']} observed={len(subset)}"
+            )
+        candidate_keys = {
+            tuple(map(str, values))
+            for values in subset[list(CANDIDATE_KEY)].itertuples(
+                index=False, name=None
+            )
+        }
+        cell_root = _impl._cell_root(phase2_root, row)
+        flags = evaluator_flags(cell_root, candidate_keys)
+        subset = subset.merge(
+            flags, on=list(CANDIDATE_KEY), how="inner", validate="one_to_one"
+        )
+        subset["case"] = case_id
+        subset["fault"] = str(row["fault"])
+        subset["role"] = (
+            "calibration"
+            if case_id in calibration_cases
+            else "heldout"
+            if case_id in heldout_cases
+            else "unknown"
+        )
+        if subset["role"].eq("unknown").any():
+            raise _impl.Phase3R2Error(
+                f"case is absent from frozen calibration/heldout split: {case_id}"
+            )
+        records.append(subset)
+        token_manifest.append(
+            {
+                "incident_token": token,
+                "case": case_id,
+                "fault": str(row["fault"]),
+                "seed": int(row["seed"]),
+                "mask_id": str(row["mask_id"]),
+                "role": str(subset.iloc[0]["role"]),
+                "candidate_count": len(subset),
+            }
+        )
+
+    analysis = pd.concat(records, ignore_index=True)
+    if len(analysis) != int(cells["a2_proposal_count"].sum()):
+        raise _impl.Phase3R2Error("all-candidate handoff row count changed")
+    if analysis.duplicated(
+        ["incident_token", "seed", "mask_id", *CANDIDATE_KEY]
+    ).any():
+        raise _impl.Phase3R2Error("duplicate rows in all-candidate R2 handoff")
+
+    private = output / "evaluator_private"
+    private.mkdir(parents=True, exist_ok=True)
+    analysis.to_parquet(private / "all_candidate_analysis.parquet", index=False)
+    (private / "incident_token_manifest.json").write_text(
+        json.dumps(token_manifest, ensure_ascii=False, indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def run_phase3_r2(**kwargs: Any) -> Path:
+    """Execute R2 with compatible decoding and an R3-ready handoff."""
+
+    original_flags = _impl._evaluator_flags
+    original_process = _impl._process_cell
+
+    def process_with_token(
+        phase2_root: Path, row: Mapping[str, Any], role: str
+    ) -> tuple[tuple[str, int, str], pd.DataFrame, dict[str, Any]]:
+        key, frame, diagnostics = original_process(phase2_root, row, role)
+        token = incident_token(row["case"])
+        frame = frame.copy()
+        frame["incident_token"] = token
+        diagnostics = dict(diagnostics)
+        diagnostics["incident_token"] = token
+        return key, frame, diagnostics
+
     _impl._evaluator_flags = evaluator_flags
+    _impl._process_cell = process_with_token
     try:
-        return _impl.run_phase3_r2(**kwargs)
+        output = _impl.run_phase3_r2(**kwargs)
+        _materialize_all_candidate_analysis(
+            output=output,
+            phase2_root=Path(kwargs["phase2_root"]).expanduser().resolve(),
+        )
+        return output
     finally:
-        _impl._evaluator_flags = original
+        _impl._evaluator_flags = original_flags
+        _impl._process_cell = original_process
 
 
 __all__ = [
     "decode_edge_key",
     "decode_edge_set",
     "evaluator_flags",
+    "incident_token",
     "run_phase3_r2",
 ]
