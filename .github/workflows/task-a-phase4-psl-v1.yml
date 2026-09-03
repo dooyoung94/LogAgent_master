@@ -30,6 +30,8 @@ jobs:
   multi-evidence-psl:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      PYTHONPATH: ${{ github.workspace }}/src
 
     steps:
       - name: Checkout tested revision
@@ -47,10 +49,11 @@ jobs:
           python-version: "3.10"
           cache: pip
 
-      - name: Install project, tests and official PSL runtime
+      - name: Install tests, data stack and official PSL runtime
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[test,psl]"
+          python -m pip install "numpy>=1.26" "pandas>=2.2" "pyarrow>=15" "pytest>=8"
+          python -m pip install "pslpython==2.4.0"
 
       - name: Run repository tests including real PSL integration
         run: python -m pytest -q
