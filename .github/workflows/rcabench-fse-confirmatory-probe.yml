@@ -1,4 +1,4 @@
-name: RCABench FSE Confirmatory Probe
+name: RCABench OPS-Lite Confirmatory Probe
 
 on:
   pull_request:
@@ -35,9 +35,9 @@ jobs:
       - name: Install probe dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "huggingface-hub>=0.26,<1" "pyarrow>=15" "pandas>=2.2"
+          python -m pip install "huggingface-hub>=0.26,<1" "pyarrow>=15" "pandas>=2.2" requests
 
-      - name: Probe checksum-locked official dataset revision
+      - name: Probe checksum-locked official RCABench OPS-Lite revision
         run: |
           python - <<'PY'
           from __future__ import annotations
@@ -46,119 +46,107 @@ jobs:
           import json
           from pathlib import Path
 
-          import pandas as pd
           import pyarrow.parquet as pq
+          import requests
           from huggingface_hub import HfApi, hf_hub_download
 
-          REPO_ID = "HamsterStation/rcabench-fse"
-          REVISION = "v1.0.0"
-          EXPECTED_TEST_CASES = 296
-          EXPECTED_ALL_MANIFEST_SHA256 = "588165081264b3de851b7b3b7ec59d27a5258107ad04c56d8c1c3f2a5ff76da7"
+          REPO_ID = "anon-ops/ops-lite"
+          REVISION = "9ac09981c08ab02a0b923eab7830d778934851a8"
+          EXPECTED_MANIFEST_SHA256 = "5d4d3960446408a6e43ea87c51a255aa7a39d43a1db6aeb731cf20b18f4fb7cd"
+          LEADERBOARD_COMMIT = "8eae8ca62d425437f010f78afde0a4e7606e6da6"
+          TEST_SPLIT_URL = (
+              "https://raw.githubusercontent.com/OperationsPAI/rcabench-leaderboard/"
+              f"{LEADERBOARD_COMMIT}/config/splits/ops-lite-seed42-test.txt"
+          )
+          EXPECTED_TEST_CASES = 100
 
           output = Path("outputs/rcabench_fse_probe")
           output.mkdir(parents=True, exist_ok=True)
           snapshot = output / "snapshot"
           snapshot.mkdir()
 
-          manifest_paths = {}
-          for split in ("all", "train", "test"):
-              filename = f"manifests/{split}.txt"
-              local = Path(
-                  hf_hub_download(
-                      repo_id=REPO_ID,
-                      repo_type="dataset",
-                      revision=REVISION,
-                      filename=filename,
-                      local_dir=snapshot,
-                  )
+          manifest = Path(
+              hf_hub_download(
+                  repo_id=REPO_ID,
+                  repo_type="dataset",
+                  revision=REVISION,
+                  filename="manifest.jsonl",
+                  local_dir=snapshot,
               )
-              manifest_paths[split] = local
-
-          all_digest = hashlib.sha256(manifest_paths["all"].read_bytes()).hexdigest()
-          if all_digest != EXPECTED_ALL_MANIFEST_SHA256:
+          )
+          manifest_digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+          if manifest_digest != EXPECTED_MANIFEST_SHA256:
               raise SystemExit(
-                  f"all manifest SHA mismatch: {all_digest} != {EXPECTED_ALL_MANIFEST_SHA256}"
+                  f"manifest SHA mismatch: {manifest_digest} != {EXPECTED_MANIFEST_SHA256}"
               )
 
-          manifests = {
-              split: [
-                  line.strip()
-                  for line in path.read_text(encoding="utf-8").splitlines()
-                  if line.strip() and not line.lstrip().startswith("#")
-              ]
-              for split, path in manifest_paths.items()
-          }
-          if len(manifests["test"]) != EXPECTED_TEST_CASES:
-              raise SystemExit(
-                  f"unexpected test case count: {len(manifests['test'])}"
-              )
-          if set(manifests["train"]) & set(manifests["test"]):
-              raise SystemExit("official train/test manifests overlap")
-          if set(manifests["train"]) | set(manifests["test"]) != set(manifests["all"]):
-              raise SystemExit("official train/test manifests do not partition all")
+          response = requests.get(TEST_SPLIT_URL, timeout=60)
+          response.raise_for_status()
+          test_text = response.text
+          test_cases = [
+              line.strip()
+              for line in test_text.splitlines()
+              if line.strip() and not line.lstrip().startswith("#")
+          ]
+          if len(test_cases) != EXPECTED_TEST_CASES or len(set(test_cases)) != EXPECTED_TEST_CASES:
+              raise SystemExit(f"unexpected pinned test split: {len(test_cases)}")
 
+          records = {}
+          for line_no, line in enumerate(manifest.read_text(encoding="utf-8").splitlines(), start=1):
+              if not line.strip():
+                  continue
+              row = json.loads(line)
+              case_id = str(
+                  row.get("case_id")
+                  or row.get("name")
+                  or row.get("id")
+                  or row.get("source")
+                  or ""
+              ).strip()
+              if not case_id:
+                  raise SystemExit(f"manifest row {line_no} lacks a case identifier")
+              if case_id in records:
+                  raise SystemExit(f"duplicate case identifier: {case_id}")
+              records[case_id] = row
+          missing = sorted(set(test_cases) - set(records))
+          if missing:
+              raise SystemExit(f"pinned test cases missing from manifest: {missing[:3]}")
+
+          # Choose solely from the frozen test identifiers before reading their
+          # metadata, telemetry, fault type, or any model result.
+          selected_case = min(
+              test_cases,
+              key=lambda case_id: hashlib.sha256(
+                  f"{REVISION}|independent-confirmatory-probe|{case_id}".encode("utf-8")
+              ).hexdigest(),
+          )
           files = HfApi().list_repo_files(
               repo_id=REPO_ID,
               repo_type="dataset",
               revision=REVISION,
           )
-          test_entries = sorted(manifests["test"])
-          # Selection uses only the frozen case identifier and revision, before
-          # reading telemetry, labels, fault type, or model performance.
-          selected_entry = min(
-              test_entries,
-              key=lambda item: hashlib.sha256(
-                  f"{REVISION}|confirmatory-probe|{item}".encode("utf-8")
-              ).hexdigest(),
-          )
-          normalized = selected_entry.strip("/")
-          prefixes = [normalized]
-          if not normalized.startswith("data/"):
-              prefixes.append(f"data/{normalized}")
-          case_files = sorted(
-              filename
-              for filename in files
-              if any(
-                  filename == prefix or filename.startswith(prefix + "/")
-                  for prefix in prefixes
-              )
-          )
+          prefix = f"cases/{selected_case}/"
+          case_files = sorted(path for path in files if path.startswith(prefix))
           if not case_files:
-              # Manifest entries in some native datasets point to a metadata
-              # file.  Resolve the containing directory without guessing labels.
-              parent = normalized.rsplit("/", 1)[0] if "/" in normalized else normalized
-              case_files = sorted(
-                  filename
-                  for filename in files
-                  if filename.startswith(parent + "/")
-                  or filename.startswith("data/" + parent + "/")
-              )
-          if not case_files:
-              raise SystemExit(
-                  f"unable to resolve selected test entry in repository tree: {selected_entry}"
-              )
+              raise SystemExit(f"selected test case directory is absent: {selected_case}")
 
           desired_names = {
               "normal_traces.parquet",
               "abnormal_traces.parquet",
               "injection.json",
-              "causal_graph.json",
-              "conclusion.parquet",
               "env.json",
+              "normal_logs.parquet",
+              "abnormal_logs.parquet",
+              "normal_metrics.parquet",
+              "abnormal_metrics.parquet",
           }
-          desired = [
-              path for path in case_files if Path(path).name in desired_names
-          ]
-          if not {
-              "normal_traces.parquet",
-              "abnormal_traces.parquet",
-          }.issubset({Path(path).name for path in desired}):
-              raise SystemExit(
-                  "selected test incident does not expose both normal and abnormal trace files"
-              )
+          desired = [path for path in case_files if Path(path).name in desired_names]
+          required = {"normal_traces.parquet", "abnormal_traces.parquet"}
+          if not required.issubset({Path(path).name for path in desired}):
+              raise SystemExit("selected case lacks required normal/abnormal traces")
 
           downloaded = {}
-          schema = {}
+          schemas = {}
           for filename in desired:
               local = Path(
                   hf_hub_download(
@@ -175,77 +163,76 @@ jobs:
               }
               if local.suffix == ".parquet":
                   parquet = pq.ParquetFile(local)
-                  schema[filename] = {
+                  schemas[filename] = {
                       "rows": parquet.metadata.num_rows,
                       "row_groups": parquet.metadata.num_row_groups,
                       "columns": [field.name for field in parquet.schema_arrow],
                   }
 
-          required_trace_semantics = {
+          aliases = {
               "trace_id": {"trace_id", "traceID"},
               "span_id": {"span_id", "spanID"},
               "parent_span_id": {"parent_span_id", "parentSpanID"},
               "service": {"service_name", "serviceName", "service_id"},
           }
           trace_audit = {}
-          for filename, item in schema.items():
+          for filename, info in schemas.items():
               if not filename.endswith("traces.parquet"):
                   continue
-              columns = set(item["columns"])
-              missing = [
-                  semantic
-                  for semantic, aliases in required_trace_semantics.items()
-                  if not aliases.intersection(columns)
+              columns = set(info["columns"])
+              missing_semantics = [
+                  name for name, candidates in aliases.items()
+                  if not candidates.intersection(columns)
               ]
               trace_audit[filename] = {
-                  "missing_required_semantics": missing,
-                  "ready": not missing,
+                  "ready": not missing_semantics,
+                  "missing_required_semantics": missing_semantics,
               }
-          if not trace_audit or not all(item["ready"] for item in trace_audit.values()):
+          if len(trace_audit) != 2 or not all(item["ready"] for item in trace_audit.values()):
               raise SystemExit(f"trace schema is not adapter-ready: {trace_audit}")
 
+          selected_metadata = records[selected_case]
           result = {
               "schema_version": 1,
               "status": "READY",
               "dataset": {
+                  "source": "official RCABench leaderboard OPS-Lite adapter",
                   "repo_id": REPO_ID,
                   "revision": REVISION,
-                  "all_manifest_sha256": all_digest,
-                  "manifest_counts": {
-                      split: len(values) for split, values in manifests.items()
-                  },
+                  "manifest_sha256": manifest_digest,
+                  "leaderboard_commit": LEADERBOARD_COMMIT,
+                  "pinned_test_split_sha256": hashlib.sha256(test_text.encode("utf-8")).hexdigest(),
+                  "manifest_cases": len(records),
+                  "test_cases": len(test_cases),
               },
               "selection_contract": {
-                  "split": "official_test",
-                  "selected_before_telemetry_inspection": True,
-                  "selection_material": "revision + opaque manifest entry",
-                  "selected_entry": selected_entry,
+                  "split": "official_pinned_test",
+                  "selected_before_metadata_or_telemetry_inspection": True,
+                  "selection_material": "revision + opaque test case identifier",
+                  "selected_case": selected_case,
               },
+              "selected_case_metadata_after_selection": selected_metadata,
               "repository_file_count": len(files),
               "selected_case_files": case_files,
               "downloaded": downloaded,
-              "schemas": schema,
+              "schemas": schemas,
               "trace_schema_audit": trace_audit,
           }
           (output / "probe.json").write_text(
               json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
               encoding="utf-8",
           )
-          (output / "test_manifest.txt").write_text(
-              "\n".join(manifests["test"]) + "\n", encoding="utf-8"
-          )
-          (output / "repo_files.txt").write_text(
-              "\n".join(files) + "\n", encoding="utf-8"
-          )
-          print("RCABENCH_FSE_PROBE_START")
+          (output / "test_manifest.txt").write_text(test_text, encoding="utf-8")
+          (output / "repo_files.txt").write_text("\n".join(files) + "\n", encoding="utf-8")
+          print("RCABENCH_OPS_LITE_PROBE_START")
           print(json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True))
-          print("RCABENCH_FSE_PROBE_END")
+          print("RCABENCH_OPS_LITE_PROBE_END")
           PY
 
       - name: Upload probe artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rcabench-fse-confirmatory-probe-${{ github.sha }}
+          name: rcabench-ops-lite-confirmatory-probe-${{ github.sha }}
           path: outputs/rcabench_fse_probe
           if-no-files-found: error
           retention-days: 30
