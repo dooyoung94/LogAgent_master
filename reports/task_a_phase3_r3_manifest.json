@@ -1,0 +1,26 @@
+{
+  "task_a_phase3_r3_calibration_cells.csv": {
+    "bytes": 3355,
+    "sha256": "05eac8fa8adf43212b320a78d88322c451fa4d2523ab9fc30b8e6558ed344d29"
+  },
+  "task_a_phase3_r3_heldout_cells.csv": {
+    "bytes": 6127,
+    "sha256": "3877cc4d38064a5de6500ebc587f0909b5464e1c29c2087739cd6ba63fd6a620"
+  },
+  "task_a_phase3_r3_policy_grid.csv": {
+    "bytes": 78269,
+    "sha256": "c4ae6fcdcbd89b5151307e69384a09f6f2186ce18d1525d6cd51448239cbdb53"
+  },
+  "task_a_phase3_r3_results.json": {
+    "bytes": 11021,
+    "sha256": "97a36bf5e8520bebea54212c1e8c5a47c9b3ec708cea73c164a722ab45b7f9de"
+  },
+  "task_a_phase3_r3_results.md": {
+    "bytes": 3360,
+    "sha256": "776e00367a108560bc25328dfb11a18b3f41e0b8541d513f545a7bcd3a7a7951"
+  },
+  "task_a_phase3_r3_status.txt": {
+    "bytes": 5,
+    "sha256": "4f8e9e45f8a9e1843b81eaf3bdf52a6b778d415d23bf985774a9d34a43f69bd5"
+  }
+}

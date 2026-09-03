@@ -1,0 +1,319 @@
+{
+  "calibration": {
+    "baseline_a2_full": {
+      "cell_count": 20,
+      "mrr_macro": 1.0,
+      "mrr_min": 1.0,
+      "recall_macro": 1.0,
+      "recall_min": 1.0,
+      "recall_pooled": 1.0,
+      "selected_count_max": 32,
+      "selected_count_mean": 23.75,
+      "selected_count_median": 24.0,
+      "silver_precision_lower_bound_macro": 0.6729172246510956,
+      "silver_precision_lower_bound_min": 0.47619047619047616
+    },
+    "equal_size_a2_control": {
+      "cell_count": 20,
+      "mrr_macro": 1.0,
+      "mrr_min": 1.0,
+      "recall_macro": 1.0,
+      "recall_min": 1.0,
+      "recall_pooled": 1.0,
+      "selected_count_max": 28,
+      "selected_count_mean": 20.7,
+      "selected_count_median": 20.5,
+      "silver_precision_lower_bound_macro": 0.7697566754312278,
+      "silver_precision_lower_bound_min": 0.5555555555555556
+    },
+    "equal_size_r2_control": {
+      "cell_count": 20,
+      "mrr_macro": 1.0,
+      "mrr_min": 1.0,
+      "recall_macro": 1.0,
+      "recall_min": 1.0,
+      "recall_pooled": 1.0,
+      "selected_count_max": 28,
+      "selected_count_mean": 20.7,
+      "selected_count_median": 20.5,
+      "silver_precision_lower_bound_macro": 0.7697566754312278,
+      "silver_precision_lower_bound_min": 0.5555555555555556
+    },
+    "feasible": false,
+    "feasible_policy_count": 0,
+    "proposed_a3_r3": {
+      "cell_count": 20,
+      "mrr_macro": 1.0,
+      "mrr_min": 1.0,
+      "recall_macro": 1.0,
+      "recall_min": 1.0,
+      "recall_pooled": 1.0,
+      "selected_count_max": 28,
+      "selected_count_mean": 20.7,
+      "selected_count_median": 20.5,
+      "silver_precision_lower_bound_macro": 0.7697566754312278,
+      "silver_precision_lower_bound_min": 0.5555555555555556
+    },
+    "searched_policy_count": 256
+  },
+  "channel_weights": {
+    "http": 0.2,
+    "operation": 0.3,
+    "role": 0.15,
+    "trace": 0.35
+  },
+  "claim_limit": "Development-only channel-wise DeBERTa reranking of runtime CALLS candidates on six previously inspected RCAEval TrainTicket incidents. No causal-edge, RCA, LLM, production-generalization, or confirmatory claim.",
+  "experiment_id": "rcaeval-task-a-phase3-r3-channel-nli-v2",
+  "gate": {
+    "conditions": {
+      "a2_candidates_preserved": true,
+      "backend_batch_size_one": true,
+      "backend_research_valid": true,
+      "calibration_policy_feasible": false,
+      "candidate_count_reduced": true,
+      "heldout_complete": true,
+      "matched_a2_mrr_noninferior": true,
+      "matched_a2_p_lb_noninferior": true,
+      "matched_a2_recall_noninferior": true,
+      "matched_r2_mrr_noninferior": true,
+      "matched_r2_p_lb_noninferior": true,
+      "matched_r2_recall_noninferior": true,
+      "mrr_noninferior_to_full_a2": false,
+      "nli_additive_gain": true,
+      "nli_candidate_coverage": true,
+      "nli_score_has_variance": true,
+      "nli_weight_active": true,
+      "no_silent_truncation": true,
+      "p_lb_noninferior_to_full_a2": true,
+      "recall_each_cell": true,
+      "recall_macro": true,
+      "recall_pooled": true
+    },
+    "passed": false,
+    "reason_codes": [
+      "CALIBRATION_POLICY_FEASIBLE",
+      "MRR_NONINFERIOR_TO_FULL_A2"
+    ],
+    "required": {
+      "matched_a2_mrr_delta_min": 0.0,
+      "matched_a2_p_lb_delta_min": 0.0,
+      "matched_a2_recall_tolerance": 0.0,
+      "matched_r2_mrr_delta_min": 0.0,
+      "matched_r2_p_lb_delta_min": 0.0,
+      "matched_r2_recall_tolerance": 0.0,
+      "mrr_delta_vs_full_min": 0.0,
+      "nli_additive_gain_min": 1e-06,
+      "nli_candidate_coverage_min": 0.95,
+      "nli_score_std_min": 1e-06,
+      "p_lb_delta_vs_full_min": 0.0,
+      "recall_each_cell_min": 0.9,
+      "recall_macro_min": 0.95,
+      "recall_pooled_min": 0.95,
+      "selected_count_ratio_max": 0.95
+    },
+    "status": "FAIL"
+  },
+  "gate_id": "D4C_A3_R3_CHANNEL_NLI_DEVELOPMENT",
+  "heldout": {
+    "baseline_a2_full": {
+      "cell_count": 40,
+      "mrr_macro": 1.0,
+      "mrr_min": 1.0,
+      "recall_macro": 1.0,
+      "recall_min": 1.0,
+      "recall_pooled": 1.0,
+      "selected_count_max": 32,
+      "selected_count_mean": 19.375,
+      "selected_count_median": 16.0,
+      "silver_precision_lower_bound_macro": 0.7233867514215,
+      "silver_precision_lower_bound_min": 0.4230769230769231
+    },
+    "delta_vs_equal_size_a2": {
+      "mrr_macro": 0.001136363636363602,
+      "recall_macro": 0.001136363636363602,
+      "selected_count_mean": 0.0,
+      "silver_precision_lower_bound_macro": 0.0010869565217392907
+    },
+    "delta_vs_equal_size_r2": {
+      "mrr_macro": 0.001136363636363602,
+      "recall_macro": 0.001136363636363602,
+      "selected_count_mean": 0.0,
+      "silver_precision_lower_bound_macro": 0.0010869565217392907
+    },
+    "delta_vs_full_a2": {
+      "mrr_macro": -0.001136363636363713,
+      "recall_macro": -0.001136363636363713,
+      "selected_count_mean": -2.3500000000000014,
+      "silver_precision_lower_bound_macro": 0.0856280833813784
+    },
+    "equal_size_a2_control": {
+      "cell_count": 40,
+      "mrr_macro": 0.9977272727272727,
+      "mrr_min": 0.9545454545454546,
+      "recall_macro": 0.9977272727272727,
+      "recall_min": 0.9545454545454546,
+      "recall_pooled": 0.9962962962962963,
+      "selected_count_max": 28,
+      "selected_count_mean": 17.025,
+      "selected_count_median": 14.0,
+      "silver_precision_lower_bound_macro": 0.8079278782811391,
+      "silver_precision_lower_bound_min": 0.4782608695652174
+    },
+    "equal_size_r2_control": {
+      "cell_count": 40,
+      "mrr_macro": 0.9977272727272727,
+      "mrr_min": 0.9545454545454546,
+      "recall_macro": 0.9977272727272727,
+      "recall_min": 0.9545454545454546,
+      "recall_pooled": 0.9962962962962963,
+      "selected_count_max": 28,
+      "selected_count_mean": 17.025,
+      "selected_count_median": 14.0,
+      "silver_precision_lower_bound_macro": 0.8079278782811391,
+      "silver_precision_lower_bound_min": 0.4782608695652174
+    },
+    "nli_additive_gain": 0.001136363636363602,
+    "proposed_a3_r3": {
+      "cell_count": 40,
+      "mrr_macro": 0.9988636363636363,
+      "mrr_min": 0.9545454545454546,
+      "recall_macro": 0.9988636363636363,
+      "recall_min": 0.9545454545454546,
+      "recall_pooled": 0.9981481481481481,
+      "selected_count_max": 28,
+      "selected_count_mean": 17.025,
+      "selected_count_median": 14.0,
+      "silver_precision_lower_bound_macro": 0.8090148348028784,
+      "silver_precision_lower_bound_min": 0.4782608695652174
+    },
+    "selected_count_ratio": 0.8787096774193548
+  },
+  "leakage_boundary": {
+    "evaluator_columns_removed_before_nli": true,
+    "evaluator_labels_joined_after_nli_freeze": true,
+    "fault_or_root_label_used_for_scoring": false,
+    "feature_inputs": "sanitized Phase-2 traces, observed graph and A2 candidates only",
+    "heldout_labels_used_for_policy_selection": false,
+    "policy_selection": "calibration incidents only"
+  },
+  "nli_diagnostics": {
+    "backend": {
+      "actual_sha256": "03c2221313dc0c3eac9cec1f746d1319d33f2c2901fcce1c0f08f4daac9b6dae",
+      "backend": "OnnxDebertaNLIBackend",
+      "batch_size": 1,
+      "expected_sha256": "03c2221313dc0c3eac9cec1f746d1319d33f2c2901fcce1c0f08f4daac9b6dae",
+      "label_to_index": {
+        "contradiction": 0,
+        "entailment": 1,
+        "neutral": 2
+      },
+      "local_files_only": true,
+      "max_length": 512,
+      "model_dir": "/home/runner/work/LogAgent_master/LogAgent_master/data/models/nli-deberta-v3-small",
+      "onnx_path": "/home/runner/work/LogAgent_master/LogAgent_master/data/models/nli-deberta-v3-small/onnx/model_quint8_avx2.onnx",
+      "performance_mode": false,
+      "providers": [
+        "CPUExecutionProvider"
+      ],
+      "research_valid": true,
+      "revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+      "telemetry_disabled": true,
+      "truncation_policy": "reject_over_budget"
+    },
+    "cache": {
+      "hits": 4358,
+      "inference_batches": 5642,
+      "misses": 5642,
+      "size": 5642
+    },
+    "candidate_count": 1250,
+    "candidate_coverage": 1.0,
+    "channel_coverage": {
+      "http": 1.0,
+      "operation": 1.0,
+      "role": 1.0,
+      "trace": 1.0
+    },
+    "maximum_pair_tokens": 135,
+    "minimum_pair_tokens": 89,
+    "nli_score_mean": -0.05074841949689806,
+    "nli_score_std": 0.04640515209040336,
+    "pair_count": 10000,
+    "pairs_per_available_channel": 2,
+    "state_counts": {
+      "http": {
+        "ambiguous": 96,
+        "contradicts": 1154,
+        "corroborates": 0,
+        "unavailable": 0
+      },
+      "operation": {
+        "ambiguous": 1239,
+        "contradicts": 11,
+        "corroborates": 0,
+        "unavailable": 0
+      },
+      "role": {
+        "ambiguous": 428,
+        "contradicts": 372,
+        "corroborates": 450,
+        "unavailable": 0
+      },
+      "trace": {
+        "ambiguous": 500,
+        "contradicts": 750,
+        "corroborates": 0,
+        "unavailable": 0
+      }
+    },
+    "truncation_count": 0
+  },
+  "protocol_status": {
+    "confirmatory_holdout_required": true,
+    "phase": "DEVELOPMENT_RETEST",
+    "reason": "The six RCAEval incidents and prior A3 held-out results have already been inspected. This experiment may diagnose and improve the method but cannot serve as the final confirmatory test."
+  },
+  "schema_version": 1,
+  "selected_policy": {
+    "minimum_keep": 8,
+    "nli_weight": 0.1,
+    "operational_weight": 0.0,
+    "retention_fraction": 0.85
+  },
+  "source": {
+    "candidate_cells": 60,
+    "candidate_rows": 1250,
+    "config_sha256": "d98883ae274aa75c7c6a55b18176afad918dc11b834b3b000343e646041ab573",
+    "phase2_cells_sha256": "ce9aaab44dd50f1e7946392f020d167526296ed73a94b76c954dce1e287df286",
+    "phase2_root": "/home/runner/work/LogAgent_master/LogAgent_master/outputs/task_a/phase2_r3_source"
+  },
+  "split": {
+    "calibration_cases": [
+      "re2tt_ts-travel-service_mem_3",
+      "re2tt_ts-auth-service_cpu_2"
+    ],
+    "calibration_cells": 20,
+    "case_hashes": {
+      "re2tt_ts-auth-service_cpu_2": "25aa5b66aa17a3fbb7e2d15ce11d417eaa3b18987412a1e44e157e38cdf69939",
+      "re2tt_ts-auth-service_delay_3": "621aebdec77bcfaa571f4402a2a6e70b41ff4578cfd6f1a3751f8c22b5e29c11",
+      "re2tt_ts-order-service_disk_3": "a3a32a1b3cb58e4fa6560244eac1392320dfffb174fb444a53dba40da9b0dd93",
+      "re2tt_ts-train-service_loss_3": "5db30230eeb8ed7d7eaf7363bc376c249e35cf5b798cfc9d0fa404e08a71ab6a",
+      "re2tt_ts-travel-service_mem_3": "074cd546fc8eba0f6478b35920c438a3c4b32edc4a04169caa5fe6a852adf004",
+      "re2tt_ts-travel-service_socket_3": "28c4decc8be77b521b9175dcbd9d468dfc304e4bd57eaf16e95b36bb922aeaeb"
+    },
+    "heldout_cases": [
+      "re2tt_ts-travel-service_socket_3",
+      "re2tt_ts-train-service_loss_3",
+      "re2tt_ts-auth-service_delay_3",
+      "re2tt_ts-order-service_disk_3"
+    ],
+    "heldout_cells": 40
+  },
+  "status": "FAIL",
+  "tri_state": {
+    "contradict_probability_min": 0.65,
+    "contradiction_margin_min": 0.1,
+    "corroborate_entailment_min": 0.45,
+    "evidence_margin_min": 0.05
+  }
+}
