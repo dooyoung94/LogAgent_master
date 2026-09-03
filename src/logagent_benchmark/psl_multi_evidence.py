@@ -125,67 +125,67 @@ def _rule_specs(weights: PslRuleWeights) -> tuple[PslRuleSpec, ...]:
         PslRuleSpec(
             "A2_PRIOR",
             weights.a2_prior,
-            f"{guarded} & A2Prior(C, S, O) -> Calls(C, S, O)",
+            f"{guarded} & A2Prior(C, S, O) -> RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "TRACE_SUPPORT",
             weights.trace_support,
-            f"{guarded} & TraceSupport(C, S, O) -> Calls(C, S, O)",
+            f"{guarded} & TraceSupport(C, S, O) -> RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "BOUNDARY_SUPPORT",
             weights.boundary_support,
-            f"{guarded} & BoundarySupport(C, S, O) -> Calls(C, S, O)",
+            f"{guarded} & BoundarySupport(C, S, O) -> RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "REPEATED_SUPPORT",
             weights.repeated_support,
-            f"{guarded} & RepeatedSupport(C, S, O) -> Calls(C, S, O)",
+            f"{guarded} & RepeatedSupport(C, S, O) -> RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "DIRECTION_SUPPORT",
             weights.direction_support,
-            f"{guarded} & DirectionSupport(C, S, O) -> Calls(C, S, O)",
+            f"{guarded} & DirectionSupport(C, S, O) -> RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "OPERATION_MATCH",
             weights.operation_match,
-            f"{guarded} & OperationMatch(C, S, O) -> Calls(C, S, O)",
+            f"{guarded} & OperationMatch(C, S, O) -> RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "ENDPOINT_MATCH",
             weights.endpoint_match,
-            f"{guarded} & EndpointMatch(C, S, O) -> Calls(C, S, O)",
+            f"{guarded} & EndpointMatch(C, S, O) -> RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "ROLE_COMPATIBILITY",
             weights.role_compatibility,
-            f"{guarded} & RoleCompatibility(C, S, O) -> Calls(C, S, O)",
+            f"{guarded} & RoleCompatibility(C, S, O) -> RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "DIRECT_OBSERVED",
             weights.direct_observed,
-            f"{guarded} & DirectObserved(C, S, O) -> Calls(C, S, O)",
+            f"{guarded} & DirectObserved(C, S, O) -> RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "REVERSE_SUPPORT_NEGATIVE",
             weights.reverse_support_negative,
-            f"{guarded} & ReverseSupport(C, S, O) -> !Calls(C, S, O)",
+            f"{guarded} & ReverseSupport(C, S, O) -> !RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "DIRECTION_CONFLICT_NEGATIVE",
             weights.direction_conflict_negative,
-            f"{guarded} & DirectionConflict(C, S, O) -> !Calls(C, S, O)",
+            f"{guarded} & DirectionConflict(C, S, O) -> !RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "SELF_LOOP_NEGATIVE",
             weights.self_loop_negative,
-            f"{guarded} & SelfLoop(C, S, O) -> !Calls(C, S, O)",
+            f"{guarded} & SelfLoop(C, S, O) -> !RecoveredCallsV1(C, S, O)",
         ),
         PslRuleSpec(
             "SPARSITY",
             weights.sparsity,
-            "!Calls(C, S, O)",
+            "!RecoveredCallsV1(C, S, O)",
         ),
     )
 
@@ -366,7 +366,7 @@ class PslMultiEvidenceBackendV1:
                     self._write_observation(path, evidence, column)
                     predicate.add_data_file(Partition.OBSERVATIONS, str(path))
 
-                calls = Predicate("Calls", size=3)
+                calls = Predicate("RecoveredCallsV1", size=3)
                 model.add_predicate(calls)
                 target_path = temporary_path / "calls_targets.tsv"
                 with target_path.open("w", encoding="utf-8", newline="") as stream:
@@ -407,7 +407,7 @@ class PslMultiEvidenceBackendV1:
                         str(atom["arguments"][2]),
                     )
                     for _atom_id, atom in atom_items
-                    if str(atom.get("predicate", "")).upper() == "CALLS"
+                    if str(atom.get("predicate", "")).upper() == "RECOVEREDCALLSV1"
                 }
                 if grounded_calls != expected:
                     raise PslMultiEvidenceError(
@@ -421,7 +421,7 @@ class PslMultiEvidenceBackendV1:
                     jvm_options=list(self.jvm_options),
                 )
                 if calls not in inferred:
-                    raise PslMultiEvidenceError("PSL did not return Calls targets")
+                    raise PslMultiEvidenceError("PSL did not return RecoveredCallsV1 targets")
                 result_frame = inferred[calls]
                 for cell, subject, obj, truth in result_frame.itertuples(
                     index=False, name=None
