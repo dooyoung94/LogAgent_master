@@ -1,0 +1,46 @@
+{
+  "artifact_id": 9879120002,
+  "artifact_sha256": "bc8b00dc16a606679ef35ff80f41e3cbdd89abf4595f4c2d6e7df58e7a9e83ce",
+  "experiment": "task-a-phase4-psl-v1",
+  "result_files": {
+    "task_a_phase4_psl_ablation_results.csv": {
+      "bytes": 1130,
+      "sha256": "259811293084e6eb83bdd7db28a8aec797130190c3fb02ab5d1a7bfd2247b0fa"
+    },
+    "task_a_phase4_psl_calibration_cells.csv": {
+      "bytes": 3817,
+      "sha256": "de5382e1b6fa5829d9dcd1bf6415488ab3951b59c7959f54e28877195feb3d10"
+    },
+    "task_a_phase4_psl_heldout_cells.csv": {
+      "bytes": 6987,
+      "sha256": "778d1714a03a547e8f41e6bdeafe95b64f2ff7b003ca6c58b8991caf08522295"
+    },
+    "task_a_phase4_psl_manifest.json": {
+      "bytes": 1378,
+      "sha256": "be0f19790c2bc04cf5b7056df88a68fd49f32ca4152cdf4a191f8ba7c013e94e"
+    },
+    "task_a_phase4_psl_policy_grid.csv": {
+      "bytes": 5693,
+      "sha256": "1fd352c3ed91e8038df18f77a082b9394e8590ad0b02622e678c7b207c09c181"
+    },
+    "task_a_phase4_psl_results.json": {
+      "bytes": 43945,
+      "sha256": "360832a078a04485a608093baf064d4d46d82ec8d2b1281e974245c04261ee84"
+    },
+    "task_a_phase4_psl_results.md": {
+      "bytes": 1708,
+      "sha256": "96e65708f82f127eeee1eda38a0355d4b3e3bfbf57fa75810f8e4bef7291a66d"
+    },
+    "task_a_phase4_psl_status.md": {
+      "bytes": 340,
+      "sha256": "2d17c35206c69ffddacd58f21c2f3cae82570dba430ad75dc202917c8f61e419"
+    },
+    "task_a_phase4_psl_status.txt": {
+      "bytes": 5,
+      "sha256": "4f8e9e45f8a9e1843b81eaf3bdf52a6b778d415d23bf985774a9d34a43f69bd5"
+    }
+  },
+  "schema_version": 1,
+  "workflow_head_sha": "f363ef3eb2260a9e370497ffb4269b4dbd278378",
+  "workflow_run_id": 33717711153
+}

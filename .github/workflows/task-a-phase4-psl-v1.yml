@@ -1,0 +1,197 @@
+name: Task A Phase 4 Multi-evidence PSL v1
+
+on:
+  push:
+    branches:
+      - research/task-a-phase4-psl-v1
+    paths:
+      - ".github/workflows/task-a-phase4-psl-v1.yml"
+      - "configs/experiment_task_a_rcaeval_phase4_psl_v1.json"
+      - "src/logagent_benchmark/psl_multi_evidence.py"
+      - "src/logagent_benchmark/task_a_phase4_psl.py"
+      - "tools/run_task_a_phase4_psl.py"
+      - "tests/test_task_a_phase4_psl.py"
+      - "docs/task_a_phase4_psl_v1.md"
+      - "pyproject.toml"
+  pull_request:
+    branches:
+      - research/reference-matrix-readiness
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: task-a-phase4-psl-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  multi-evidence-psl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PYTHONPATH: ${{ github.workspace }}/src
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install tests, data stack and official PSL runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "numpy>=1.26" "pandas>=2.2" "pyarrow>=15" "pytest>=8"
+          python -m pip install "pslpython==2.4.0"
+
+      - name: Run repository tests including real PSL integration
+        run: python -m pytest -q
+
+      - name: Download checksum-locked A2 operational-evidence handoff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ARTIFACT_ID: "9874215580"
+          SOURCE_ARTIFACT_SHA256: "4a1ea87b11a931cc31001bd71e25aa4bcc79695c4c9bb396d0137d75c97e2613"
+        run: |
+          mkdir -p inputs/r2
+          curl --fail --location \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${SOURCE_ARTIFACT_ID}/zip" \
+            --output inputs/task-a-phase3-r2-source.zip
+          echo "${SOURCE_ARTIFACT_SHA256}  inputs/task-a-phase3-r2-source.zip" | sha256sum --check
+          unzip -q inputs/task-a-phase3-r2-source.zip -d inputs/r2
+
+      - name: Verify frozen 1,250-candidate source contract
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import pandas as pd
+
+          expected_sha = "b70eae427275fa368c217b82a5e4635765d3526f5b2be13cc062ec979c44ab31"
+          paths = list(Path("inputs/r2").rglob("all_candidate_analysis.parquet"))
+          if len(paths) != 1:
+              raise SystemExit(f"expected one candidate analysis, found {len(paths)}")
+          path = paths[0]
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          if digest != expected_sha:
+              raise SystemExit(f"candidate analysis checksum mismatch: {digest}")
+          frame = pd.read_parquet(path)
+          required = {
+              "incident_token", "seed", "mask_id", "mask_ratio",
+              "subject", "predicate", "object", "a2_score",
+              "a2_rank_normalized", "proposal_rank", "supporting_traces",
+              "boundary_spans", "reverse_supporting_traces",
+              "reverse_boundary_spans", "direct_evidence",
+              "boundary_alignment", "direction_score",
+              "operation_role_score", "operation_pair_concentration",
+              "method_coverage", "method_match_rate", "route_coverage",
+              "route_exact_rate", "route_jaccard_mean",
+              "operation_jaccard_mean", "endpoint_compatibility_score",
+              "graph_role_score", "case", "fault", "role",
+              "is_masked_target", "is_silver_matched"
+          }
+          missing = sorted(required - set(frame.columns))
+          cells = frame.groupby(["incident_token", "seed", "mask_id"]).ngroups
+          if len(frame) != 1250 or cells != 60 or missing:
+              raise SystemExit(
+                  f"invalid handoff rows={len(frame)} cells={cells} missing={missing}"
+              )
+          Path("inputs/candidate_analysis_path.txt").write_text(str(path))
+          print(
+              f"PSL_V1_HANDOFF_READY rows={len(frame)} cells={cells} "
+              f"incidents={frame['case'].nunique()} sha256={digest}"
+          )
+          PY
+
+      - name: Execute multi-evidence PSL v1
+        id: experiment
+        shell: bash
+        run: |
+          mkdir -p outputs/task_a
+          set +e
+          ANALYSIS=$(cat inputs/candidate_analysis_path.txt)
+          python tools/run_task_a_phase4_psl.py \
+            --candidate-analysis "$ANALYSIS" \
+            --config configs/experiment_task_a_rcaeval_phase4_psl_v1.json \
+            --output outputs/task_a/phase4_psl_v1 \
+            2>&1 | tee outputs/task_a/phase4-psl-v1-execution.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Verify complete output and print compact result
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          code = int("${{ steps.experiment.outputs.exit_code || '99' }}")
+          if code not in (0, 2):
+              raise SystemExit(f"PSL v1 execution crashed: exit={code}")
+          path = Path("outputs/task_a/phase4_psl_v1/published/task_a_phase4_psl_results.json")
+          if not path.is_file():
+              raise SystemExit("PSL v1 result JSON was not created")
+          result = json.loads(path.read_text(encoding="utf-8"))
+          if result["source"]["candidate_rows"] != 1250:
+              raise SystemExit("PSL v1 did not process all A2 candidates")
+          held = result["heldout"]
+          compact = {
+              "status": result["status"],
+              "selected_policy": result["selected_policy"],
+              "selected_rule_weights": result["selected_rule_weights"],
+              "calibration_feasible": result["calibration"]["feasible"],
+              "baseline_a2_full": held["baseline_a2_full"],
+              "equal_size_a2_control": held["equal_size_a2_control"],
+              "proposed_psl": held["proposed_psl"],
+              "delta_vs_equal_size_a2": held["delta_vs_equal_size_a2"],
+              "ablations": result["ablations"],
+              "gate": result["gate"],
+          }
+          print("TASK_A_PHASE4_PSL_V1_RESULT_START")
+          print(json.dumps(compact, indent=2, ensure_ascii=False, sort_keys=True))
+          print("TASK_A_PHASE4_PSL_V1_RESULT_END")
+          PY
+
+      - name: Upload complete PSL v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-a-phase4-psl-v1-${{ github.sha }}
+          path: |
+            outputs/task_a/phase4_psl_v1
+            outputs/task_a/phase4-psl-v1-execution.log
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Record scientific gate without hiding negative results
+        if: always()
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(
+              Path("outputs/task_a/phase4_psl_v1/published/task_a_phase4_psl_results.json")
+              .read_text(encoding="utf-8")
+          )
+          if not result["gate"]["passed"]:
+              raise SystemExit(
+                  "D4D failed: " + ", ".join(result["gate"]["reason_codes"])
+              )
+          print("D4D_A4_MULTI_EVIDENCE_PSL_DEVELOPMENT: PASS")
+          PY
