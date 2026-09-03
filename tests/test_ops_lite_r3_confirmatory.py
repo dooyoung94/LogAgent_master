@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from logagent_benchmark.ops_lite_r3_confirmatory import (
     _metric_with_true_targets,
@@ -13,7 +14,7 @@ def _raw_traces() -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
-                "time": "2026-01-01T00:00:00Z",
+                "time": "2026-01-01T00:00:00.000000Z",
                 "trace_id": "t1",
                 "span_id": "s1",
                 "parent_span_id": None,
@@ -62,9 +63,9 @@ def test_paired_bootstrap_is_deterministic_and_preserves_constant_delta():
         seed=7,
         confidence_level=0.95,
     )
-    assert result["mean"] == 0.1
-    assert result["lower"] == 0.1
-    assert result["upper"] == 0.1
+    assert result["mean"] == pytest.approx(0.1)
+    assert result["lower"] == pytest.approx(0.1)
+    assert result["upper"] == pytest.approx(0.1)
 
 
 def test_true_target_metric_counts_a2_misses_as_zero_reciprocal_rank():
