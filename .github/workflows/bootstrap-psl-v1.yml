@@ -1,0 +1,54 @@
+name: Bootstrap Task A Phase 4 PSL v1
+
+on:
+  push:
+    branches:
+      - research/task-a-phase4-psl-v1
+    paths:
+      - ".github/workflows/bootstrap-psl-v1.yml"
+      - ".bootstrap/psl_v1_payload.b64"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: research/task-a-phase4-psl-v1
+
+      - name: Decode and verify implementation payload
+        run: |
+          base64 --decode .bootstrap/psl_v1_payload.b64 > /tmp/psl-v1.tar.gz
+          echo "c73038b5e259e24b18af1888556f8d15012ab5f17872fb2304edf97419f231a7  /tmp/psl-v1.tar.gz" | sha256sum --check
+          tar -xzf /tmp/psl-v1.tar.gz -C .
+          python -m py_compile \
+            src/logagent_benchmark/psl_multi_evidence.py \
+            src/logagent_benchmark/task_a_phase4_psl.py \
+            tools/run_task_a_phase4_psl.py \
+            tests/test_task_a_phase4_psl.py
+
+      - name: Commit materialized PSL v1 implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            .github/workflows/task-a-phase4-psl-v1.yml \
+            configs/experiment_task_a_rcaeval_phase4_psl_v1.json \
+            docs/task_a_phase4_psl_v1.md \
+            reports/task_a_phase4_psl_status.md \
+            src/logagent_benchmark/psl_multi_evidence.py \
+            src/logagent_benchmark/task_a_phase4_psl.py \
+            tests/test_task_a_phase4_psl.py \
+            tools/run_task_a_phase4_psl.py
+          if git diff --cached --quiet; then
+            echo "PSL v1 implementation is already materialized"
+          else
+            git commit -m "feat: add multi-evidence PSL v1 validation"
+            git push origin HEAD:research/task-a-phase4-psl-v1
+          fi
