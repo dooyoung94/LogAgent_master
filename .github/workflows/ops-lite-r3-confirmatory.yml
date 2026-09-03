@@ -1,0 +1,178 @@
+name: OPS-Lite Frozen R3 Independent Confirmation
+
+on:
+  push:
+    branches:
+      - research/rcabench-ops-lite-r3-confirmatory
+    paths:
+      - "configs/frozen/task_a_phase3_r3_policy.json"
+      - "configs/experiment_task_a_ops_lite_r3_confirmatory.json"
+      - "src/logagent_benchmark/ops_lite_r3_confirmatory.py"
+      - "tools/prepare_ops_lite_confirmatory.py"
+      - "tools/run_ops_lite_r3_confirmatory.py"
+      - "tests/test_ops_lite_r3_confirmatory.py"
+      - "runs/ops_lite_r3_confirmatory_execution_request.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  HF_HUB_DISABLE_TELEMETRY: "1"
+  DO_NOT_TRACK: "1"
+  ORT_DISABLE_TELEMETRY: "1"
+  TOKENIZERS_PARALLELISM: "false"
+  DATA_ROOT: data/raw/ops-lite-confirmatory
+  OUTPUT_ROOT: outputs/task_a/ops-lite-r3-confirmatory
+  MODEL_ROOT: data/models/nli-deberta-v3-small
+
+concurrency:
+  group: ops-lite-r3-confirmatory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  independent-confirmation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project, test, data and DeBERTa dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test,deberta]"
+          python -m pip install "huggingface-hub>=0.26,<1" requests
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Verify frozen policy and no-search contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          policy_path = Path("configs/frozen/task_a_phase3_r3_policy.json")
+          if not policy_path.is_file():
+              raise SystemExit("frozen R3 policy is missing")
+          policy = json.loads(policy_path.read_text(encoding="utf-8"))
+          if policy.get("scientific_status") != "PASS":
+              raise SystemExit("only an actually validated PASS policy may be confirmed")
+          if policy.get("policy_tuning_allowed") is not False:
+              raise SystemExit("policy tuning must be disabled")
+          required = {"retention_fraction", "minimum_keep", "operational_weight", "nli_weight"}
+          if set(policy.get("selected_policy", {})) != required:
+              raise SystemExit("frozen selected_policy schema differs from R3Policy")
+          if float(policy["selected_policy"]["nli_weight"]) <= 0:
+              raise SystemExit("frozen policy must use positive NLI weight")
+          print("FROZEN_R3_POLICY_READY", policy["selected_policy"])
+          PY
+
+      - name: Download checksum-locked official OPS-Lite subset
+        run: |
+          python tools/prepare_ops_lite_confirmatory.py \
+            --config configs/experiment_task_a_ops_lite_r3_confirmatory.json \
+            --destination "${DATA_ROOT}"
+
+      - name: Cache checksum-locked DeBERTa model
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.MODEL_ROOT }}
+          key: deberta-nli-small-fa280487-quint8-avx2-03c22213
+
+      - name: Prepare model on cache miss
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          python tools/prepare_deberta_model.py --dest "${MODEL_ROOT}"
+
+      - name: Execute frozen policy on 8 external incidents and 48 cells
+        id: experiment
+        shell: bash
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+        run: |
+          mkdir -p outputs/task_a
+          set +e
+          python tools/run_ops_lite_r3_confirmatory.py \
+            --data-root "${DATA_ROOT}" \
+            --config configs/experiment_task_a_ops_lite_r3_confirmatory.json \
+            --frozen-policy configs/frozen/task_a_phase3_r3_policy.json \
+            --model-dir "${MODEL_ROOT}" \
+            --output "${OUTPUT_ROOT}" \
+            2>&1 | tee outputs/task_a/ops-lite-r3-confirmatory-execution.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Verify complete result without rewriting scientific outcome
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          code = int("${{ steps.experiment.outputs.exit_code || '99' }}")
+          if code not in (0, 2):
+              raise SystemExit(f"confirmatory execution crashed: exit={code}")
+          path = Path("outputs/task_a/ops-lite-r3-confirmatory/published/ops_lite_r3_confirmatory_results.json")
+          if not path.is_file():
+              raise SystemExit("confirmatory result JSON was not created")
+          result = json.loads(path.read_text(encoding="utf-8"))
+          if result["frozen_policy"]["policy_search_performed"] is not False:
+              raise SystemExit("confirmatory run unexpectedly searched a policy")
+          if result["execution"]["selected_incident_count"] != 8:
+              raise SystemExit("confirmatory incident count differs from preregistration")
+          compact = {
+              "status": result["status"],
+              "execution": result["execution"],
+              "a2_candidate_recovery": result.get("a2_candidate_recovery"),
+              "confirmatory": result.get("confirmatory"),
+              "paired_bootstrap": result.get("paired_bootstrap"),
+              "gate": result["gate"],
+          }
+          print("OPS_LITE_R3_CONFIRMATORY_RESULT_START")
+          print(json.dumps(compact, indent=2, ensure_ascii=False, sort_keys=True))
+          print("OPS_LITE_R3_CONFIRMATORY_RESULT_END")
+          PY
+
+      - name: Upload complete confirmatory artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-lite-r3-confirmatory-${{ github.sha }}
+          path: |
+            outputs/task_a/ops-lite-r3-confirmatory
+            outputs/task_a/ops-lite-r3-confirmatory-execution.log
+            data/raw/ops-lite-confirmatory/source_manifest.json
+            data/raw/ops-lite-confirmatory/official_test_split.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Record scientific gate without suppressing negative evidence
+        if: always()
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(
+              Path("outputs/task_a/ops-lite-r3-confirmatory/published/ops_lite_r3_confirmatory_results.json")
+              .read_text(encoding="utf-8")
+          )
+          if not result["gate"]["passed"]:
+              raise SystemExit(
+                  "D5 external confirmation failed: "
+                  + ", ".join(result["gate"]["reason_codes"])
+              )
+          print("D5_EXTERNAL_R3_CONFIRMATORY: PASS")
+          PY
