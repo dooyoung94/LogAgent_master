@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Task A Phase 3-R2 operational-evidence validation."""
+"""Run A3-R2 and materialize the opaque all-candidate R3 handoff."""
 
 from __future__ import annotations
 
