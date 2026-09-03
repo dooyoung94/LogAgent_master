@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "experiment_id": "rcaeval-task-a-phase4-multi-evidence-psl-v1",
+  "gate_id": "D4D_A4_MULTI_EVIDENCE_PSL_DEVELOPMENT",
+  "source_contract": {
+    "artifact_id": 9874215580,
+    "artifact_zip_sha256": "4a1ea87b11a931cc31001bd71e25aa4bcc79695c4c9bb396d0137d75c97e2613",
+    "candidate_analysis_filename": "all_candidate_analysis.parquet",
+    "candidate_analysis_sha256": "b70eae427275fa368c217b82a5e4635765d3526f5b2be13cc062ec979c44ab31",
+    "candidate_rows": 1250,
+    "candidate_cells": 60,
+    "incidents": 6,
+    "calibration_cells": 20,
+    "heldout_cells": 40
+  },
+  "psl_runtime": {
+    "implementation": "pslpython==2.4.0",
+    "java_distribution": "temurin",
+    "java_version": "17",
+    "random_seed": 7,
+    "jvm_options": ["-Xms256m", "-Xmx1536m"]
+  },
+  "rule_profiles": {
+    "conservative": {
+      "a2_prior": 6.0,
+      "trace_support": 2.5,
+      "boundary_support": 1.0,
+      "repeated_support": 1.0,
+      "direction_support": 2.0,
+      "operation_match": 1.0,
+      "endpoint_match": 0.75,
+      "role_compatibility": 0.75,
+      "direct_observed": 12.0,
+      "reverse_support_negative": 2.0,
+      "direction_conflict_negative": 3.0,
+      "self_loop_negative": 20.0,
+      "sparsity": 0.5
+    },
+    "balanced": {
+      "a2_prior": 5.0,
+      "trace_support": 3.0,
+      "boundary_support": 1.5,
+      "repeated_support": 1.5,
+      "direction_support": 3.0,
+      "operation_match": 1.5,
+      "endpoint_match": 1.0,
+      "role_compatibility": 1.0,
+      "direct_observed": 12.0,
+      "reverse_support_negative": 3.0,
+      "direction_conflict_negative": 4.0,
+      "self_loop_negative": 20.0,
+      "sparsity": 0.75
+    },
+    "evidence_heavy": {
+      "a2_prior": 3.5,
+      "trace_support": 4.0,
+      "boundary_support": 2.0,
+      "repeated_support": 2.0,
+      "direction_support": 4.0,
+      "operation_match": 2.5,
+      "endpoint_match": 1.5,
+      "role_compatibility": 1.5,
+      "direct_observed": 12.0,
+      "reverse_support_negative": 4.0,
+      "direction_conflict_negative": 5.0,
+      "self_loop_negative": 20.0,
+      "sparsity": 1.0
+    }
+  },
+  "shortlist_policy_search": {
+    "retention_fractions": [0.75, 0.8, 0.85, 0.9],
+    "minimum_keep": [8, 12]
+  },
+  "gate": {
+    "recall_macro_min": 0.95,
+    "recall_pooled_min": 0.95,
+    "recall_each_cell_min": 0.9,
+    "selected_count_ratio_max": 0.9,
+    "matched_a2_recall_tolerance": 0.0,
+    "matched_a2_p_lb_delta_min": 0.01,
+    "matched_a2_mrr_delta_min": 0.0,
+    "psl_score_std_min": 0.000001,
+    "operation_evidence_coverage_min": 0.2,
+    "ablation_gain_min": 0.000001,
+    "permutation_gain_min": 0.000001
+  },
+  "claim_limit": "Development-only validation of multi-evidence PSL reranking for runtime CALLS candidates on six previously inspected RCAEval TrainTicket incidents. It does not establish causal CAUSES edges, production generalization, RCA improvement, or LLM improvement."
+}
