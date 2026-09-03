@@ -42,12 +42,11 @@ jobs:
             tools/run_task_a_phase4_psl_v2.py \
             tests/test_task_a_phase4_psl_v2.py
 
-      - name: Commit direct-evidence PSL v2 implementation
+      - name: Commit direct-evidence PSL v2 source files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
-            .github/workflows/task-a-phase4-psl-v2.yml \
             configs/experiment_task_a_rcaeval_phase4_psl_v2.json \
             docs/task_a_phase4_psl_v2.md \
             src/logagent_benchmark/psl_direct_evidence_v2.py \
@@ -55,7 +54,7 @@ jobs:
             tests/test_task_a_phase4_psl_v2.py \
             tools/run_task_a_phase4_psl_v2.py
           if git diff --cached --quiet; then
-            echo "PSL v2 implementation is already materialized"
+            echo "PSL v2 source files are already materialized"
           else
             git commit -m "feat: add direct-evidence PSL v2 abstention validation"
             git push origin HEAD:research/task-a-phase4-psl-v2-abstention
