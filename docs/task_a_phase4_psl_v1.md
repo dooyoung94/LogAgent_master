@@ -26,7 +26,7 @@ Calibration에서 정책 선택
 - Held-out: 40개 Cell
 - 관계: `Service -[CALLS]-> Service`
 - DeBERTa: 사용하지 않음
-- PSL 실행체: `pslpython==2.4.0`, Java 17
+- PSL 실행체: `pslpython==2.4.0`, Java 17, Python 3.10 격리 실행환경
 - 최종 외부검증: 별도 RCABench/Aegis 단계에서 수행
 
 ## PSL Predicate
@@ -45,9 +45,11 @@ Calibration에서 정책 선택
 | `ReverseSupport` | 반대 방향 Trace 지지 | 음의 Evidence |
 | `DirectionConflict` | 역방향이 순방향보다 강함 | 음의 Evidence |
 | `SelfLoop` | 동일 Service 자기 관계 | 강한 음의 Evidence |
-| `Calls` | PSL이 추론할 관계 확률 | 출력 Target |
+| `RecoveredCallsV1` | PSL이 추론할 Cell별 관계 확률 | 출력 Target |
 
 모든 규칙은 Soft Rule이며 후보를 즉시 삭제하지 않는다. `CALLS`의 전이성은 사용하지 않는다. `A→B`, `B→C`가 관측되어도 직접 `A→C`를 생성하지 않는다.
+
+`RecoveredCallsV1(Cell, Source, Target)`는 기존 2항 `Calls(Source, Target)` Predicate와 JVM 전역 이름·Arity가 충돌하지 않도록 별도 이름으로 격리한다. 출력은 평가 단계에서 다시 `(Source, CALLS, Target)` 관계로 매핑한다.
 
 ## Rule profile
 
@@ -85,6 +87,12 @@ Held-out 결과를 본 뒤 Weight나 Threshold를 변경하지 않는다.
 - Evidence Permutation 시 성능 하락
 - 모든 1,250개 후보가 PSL 입력·출력에서 보존
 - Evaluator Label은 PSL 점수 고정 후 결합
+
+## 실행 상태
+
+- PSL 공식 런타임 의존성은 Python 3.10 격리 환경에서 설치한다.
+- 기존 2항 `Calls`와 신규 3항 Target의 충돌을 제거하기 위해 출력 Predicate를 `RecoveredCallsV1`로 분리했다.
+- 과학적 PASS/FAIL과 Workflow 실행 성공 여부는 별도로 기록한다.
 
 ## 해석 제한
 
