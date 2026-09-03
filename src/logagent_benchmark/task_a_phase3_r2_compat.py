@@ -1,18 +1,19 @@
 """Compatibility and handoff wrapper for Task A Phase 3-R2.
 
-Phase-2 evaluator artifacts can encode a relation triple either as a mapping
-(``{"subject": ..., "predicate": ..., "object": ...}``) or as a JSON array
-(``[subject, predicate, object]``).  The original R2 reader assumed mappings
-only and failed before any scientific metric was produced.
+Phase-2 evaluator artifacts can encode relation triples as mappings or JSON
+arrays.  The original R2 reader assumed mappings only and stopped before any
+scientific metric was produced.
 
-The wrapper also adds an opaque incident token to model-visible output and
-materializes one evaluator-private all-candidate table.  This avoids repeating
-the expensive trace feature extraction when the next evidence-specific NLI
-stage is executed.  Raw case/fault labels remain evaluator-private.
+This wrapper also keeps compact, model-visible representative operation/HTTP
+examples and an opaque incident token.  It materializes one evaluator-private
+all-candidate table after R2, allowing the next evidence-specific DeBERTa stage
+to reuse all 1,250 frozen A2 candidates without repeating trace extraction.
+Raw case/fault labels remain evaluator-private.
 """
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
 import hashlib
 import json
@@ -26,6 +27,7 @@ from . import task_a_phase3_r2 as _impl
 
 EdgeKey = tuple[str, str, str]
 CANDIDATE_KEY = ("subject", "predicate", "object")
+_TEXT_LIMIT = 180
 
 
 def decode_edge_key(item: Any, *, field_name: str) -> EdgeKey:
@@ -142,6 +144,121 @@ def incident_token(case_id: Any) -> str:
     return f"incident:{digest[:24]}"
 
 
+def _clip(value: Any) -> str:
+    return _impl._safe_text(value)[:_TEXT_LIMIT]
+
+
+def add_representative_operation_examples(
+    feature_frame: pd.DataFrame,
+    records: Sequence[Mapping[str, Any]],
+    traces: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Attach one deterministic model-visible operation pair per candidate."""
+
+    selected_spans = _impl._selected_span_frame(traces, records)
+    examples: list[dict[str, Any]] = []
+    available_count = 0
+    for record in records:
+        key = (
+            str(record["subject"]),
+            str(record["predicate"]),
+            str(record["object"]),
+        )
+        pairs = _impl._boundary_pairs(
+            selected_spans,
+            evidence_ids=set(record.get("evidence_ids", ())),
+            subject=key[0],
+            object_id=key[2],
+        )
+        signatures: Counter[tuple[str, ...]] = Counter()
+        for parent, child in pairs:
+            parent_method = _impl._http_method(
+                parent.operation_name, parent.method_name, parent.http_method
+            )
+            child_method = _impl._http_method(
+                child.operation_name, child.method_name, child.http_method
+            )
+            parent_route = _impl._normalize_route(
+                parent.operation_name, parent.method_name, parent.http_route
+            )
+            child_route = _impl._normalize_route(
+                child.operation_name, child.method_name, child.http_route
+            )
+            signatures[
+                (
+                    _clip(parent.operation_name),
+                    _clip(child.operation_name),
+                    _clip(parent.method_name),
+                    _clip(child.method_name),
+                    parent_method,
+                    child_method,
+                    parent_route,
+                    child_route,
+                    _clip(parent.span_kind).upper(),
+                    _clip(child.span_kind).upper(),
+                    _clip(parent.source_workload),
+                    _clip(parent.destination_workload),
+                )
+            ] += 1
+
+        if signatures:
+            signature, count = sorted(
+                signatures.items(), key=lambda item: (-item[1], item[0])
+            )[0]
+            available_count += 1
+            share = count / len(pairs)
+        else:
+            signature = ("",) * 12
+            count = 0
+            share = 0.0
+        (
+            parent_operation,
+            child_operation,
+            parent_method_name,
+            child_method_name,
+            parent_http_method,
+            child_http_method,
+            parent_route,
+            child_route,
+            parent_span_kind,
+            child_span_kind,
+            source_workload,
+            destination_workload,
+        ) = signature
+        examples.append(
+            {
+                "subject": key[0],
+                "predicate": key[1],
+                "object": key[2],
+                "representative_parent_operation": parent_operation,
+                "representative_child_operation": child_operation,
+                "representative_parent_method_name": parent_method_name,
+                "representative_child_method_name": child_method_name,
+                "representative_parent_http_method": parent_http_method,
+                "representative_child_http_method": child_http_method,
+                "representative_parent_route": parent_route,
+                "representative_child_route": child_route,
+                "representative_parent_span_kind": parent_span_kind,
+                "representative_child_span_kind": child_span_kind,
+                "representative_source_workload": source_workload,
+                "representative_destination_workload": destination_workload,
+                "representative_pair_count": int(count),
+                "representative_pair_share": float(share),
+            }
+        )
+
+    example_frame = pd.DataFrame.from_records(examples)
+    output = feature_frame.merge(
+        example_frame, on=list(CANDIDATE_KEY), how="left", validate="one_to_one"
+    )
+    return output, {
+        "representative_operation_candidate_count": available_count,
+        "representative_operation_candidate_coverage": (
+            available_count / len(records) if records else 0.0
+        ),
+    }
+
+
 def _materialize_all_candidate_analysis(
     *, output: Path, phase2_root: Path
 ) -> None:
@@ -246,6 +363,21 @@ def run_phase3_r2(**kwargs: Any) -> Path:
 
     original_flags = _impl._evaluator_flags
     original_process = _impl._process_cell
+    original_candidate_features = _impl._candidate_feature_rows
+
+    def candidate_features_with_examples(
+        records: Sequence[dict[str, Any]],
+        traces: pd.DataFrame,
+        observed_edges: pd.DataFrame,
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        frame, diagnostics = original_candidate_features(
+            records, traces, observed_edges
+        )
+        frame, example_diagnostics = add_representative_operation_examples(
+            frame, records, traces
+        )
+        diagnostics = {**diagnostics, **example_diagnostics}
+        return frame, diagnostics
 
     def process_with_token(
         phase2_root: Path, row: Mapping[str, Any], role: str
@@ -259,6 +391,7 @@ def run_phase3_r2(**kwargs: Any) -> Path:
         return key, frame, diagnostics
 
     _impl._evaluator_flags = evaluator_flags
+    _impl._candidate_feature_rows = candidate_features_with_examples
     _impl._process_cell = process_with_token
     try:
         output = _impl.run_phase3_r2(**kwargs)
@@ -269,10 +402,12 @@ def run_phase3_r2(**kwargs: Any) -> Path:
         return output
     finally:
         _impl._evaluator_flags = original_flags
+        _impl._candidate_feature_rows = original_candidate_features
         _impl._process_cell = original_process
 
 
 __all__ = [
+    "add_representative_operation_examples",
     "decode_edge_key",
     "decode_edge_set",
     "evaluator_flags",
