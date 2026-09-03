@@ -47,7 +47,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
-            .github/workflows/task-a-phase4-psl-v1.yml \
             configs/experiment_task_a_rcaeval_phase4_psl_v1.json \
             docs/task_a_phase4_psl_v1.md \
             reports/task_a_phase4_psl_status.md \
